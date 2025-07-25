@@ -40,6 +40,7 @@ def decode_jwt_token(token: str) -> dict:
     except jwt.JWTError:
         return None
     
+
 def get_current_user(db : Session = Depends(get_db),token : str = Depends(oauth2_scheme)) -> User:
     credentials_exception = HTTPException(
         status_code=401,
@@ -52,4 +53,37 @@ def get_current_user(db : Session = Depends(get_db),token : str = Depends(oauth2
     user = db.query(User).filter(User.username == payload.get("sub")).first()
     if user is None:
         raise credentials_exception
+
+    return user
+
+
+
+def create_email_verification_token(email: str) -> str:
+    expire = datetime.utcnow() + timedelta(hours=1)
+    to_encode = {"sub": email, "exp": expire}
+    return jwt.encode(to_encode, os.getenv("SECRET_KEY"), algorithm=os.getenv("ALGORITHM"))
+
+
+
+def verify_email_token(token: str):
+    try:
+        payload = jwt.decode(token, os.getenv("SECRET_KEY"), algorithms=[os.getenv("ALGORITHM")])  
+
+        if payload.get("exp") < datetime.utcnow().timestamp():
+            return None
+
+        return payload.get("sub")
+    
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
+    
+
+def get_verified_user(user: User = Depends(get_current_user)):
+    if not user.is_verified:
+        raise HTTPException(
+            status_code=403,
+            detail="Email not verified"
+        )
     return user
