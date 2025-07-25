@@ -7,7 +7,8 @@ app = FastAPI()
 
 @app.on_event("startup")
 def startup_event():
-   Base.metadata.create_all(bind=engine)
+    print("Creating tables...")
+    Base.metadata.create_all(bind=engine)
 
 # # Monte le routeur auth avec le préfixe /auth (déjà dans routes.py)
 app.include_router(auth_router)
