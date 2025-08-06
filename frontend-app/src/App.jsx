@@ -1,11 +1,12 @@
 import { useState } from 'react'
+import LoginPage from './pages/auth/login.jsx'
+import RegisterPage from './pages/auth/signUp.jsx'
 
 function App() {
-  const [count, setCount] = useState(0)
 
   return (
     <>
-     <div className='flex items-center justify-center h-screen text-2xl'>Hello My APP</div>
+      <LoginPage />
     </>
   )
 }
