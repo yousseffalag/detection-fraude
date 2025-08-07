@@ -27,18 +27,18 @@ const LoginPage = () => {
 
     return (
         <div className="flex items-center justify-center min-h-screen">
-            <div className="w-full max-w-7xl grid lg:grid-cols-2 bg-white shadow-2xl rounded-2xl overflow-hidden">
+            <div className="w-full max-w-7xl grid lg:grid-cols-2 bg-white overflow-hidden">
 
                 {/* Présentation (gauche) */}
                 <div className='bg-white flex justify-center p-8 lg:p-20'>
                     <div className="max-w-md ms-8">
                         {/* Logo */}
-                        <div className="flex items-center mb-8">
+                        {/* <div className="flex items-center mb-8">
                             <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mr-3">
                                 <Brain className="w-5 h-5 text-white" />
                             </div>
                             <span className="text-2xl font-bold text-gray-900">FraudGuard</span>
-                        </div>
+                        </div> */}
 
                         {/* Titre */}
                         <h1 className="text-4xl font-bold text-gray-900 mb-6 leading-snug">
@@ -61,7 +61,7 @@ const LoginPage = () => {
                 </div>
 
                 {/* Formulaire (droite) */}
-                <div className="p-8 lg:p-16 flex flex-col justify-center">
+                <div className="p-8 flex flex-col justify-center">
                     <div className="max-w-md mx-auto w-full">
                         <div className="text-center mb-8">
                             <h2 className="text-3xl font-bold text-gray-900 mb-5">

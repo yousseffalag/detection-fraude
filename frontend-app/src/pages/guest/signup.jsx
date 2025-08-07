@@ -48,12 +48,12 @@ const RegisterPage = () => {
                 <div className='bg-white flex justify-center p-8 lg:p-20'>
                     <div className="max-w-md ms-8">
                         {/* Logo */}
-                        <div className="flex items-center mb-8">
+                        {/* <div className="flex items-center mb-8">
                             <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mr-3">
                                 <Brain className="w-5 h-5 text-white" />
                             </div>
                             <span className="text-2xl font-bold text-gray-900">FraudGuard</span>
-                        </div>
+                        </div> */}
 
                         {/* Titre */}
                         <h1 className="text-4xl font-bold text-gray-900 mb-6 leading-snug">

@@ -3,6 +3,7 @@ import { Routes, Route } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute';
 import UserLayout from '../layouts/UserLayout';
 import AdminLayout from '../layouts/AdminLayout';
+import GuestLayout from '../layouts/GuestLayout';
 import NotFoundPage from '../pages/NotFound';
 import LoginPage from '../pages/guest/login';
 import RegisterPage from '../pages/guest/signup';
@@ -11,13 +12,10 @@ import RegisterPage from '../pages/guest/signup';
 const AppRoutes = () => (
     <Routes>
 
-        <Route path="/login" element={
-            <LoginPage />
-        } />
-
-        <Route path="/signup" element={
-            <RegisterPage />
-        } />
+        <Route element={<GuestLayout />}>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<RegisterPage />} />
+        </Route>
 
         <Route
             path="/"
@@ -29,7 +27,7 @@ const AppRoutes = () => (
         >
         </Route>
 
-       
+
         <Route
             path="/admin"
             element={
