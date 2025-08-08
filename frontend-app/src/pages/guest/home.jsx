@@ -2,9 +2,10 @@ import Footer from '../../components/Footer';
 import {
   Brain, Shield, BarChart3, CheckCircle, ArrowRight, Play,
   TrendingUp, Users, Database, Award, Clock, Target,
-  Mail, Phone, MapPin, Upload, Zap, Activity, Bell
+  Mail, Phone, MapPin, Upload, Zap, Activity, Bell, ChevronUp
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 
 
 const features = [
@@ -125,12 +126,29 @@ const aboutPoints = [
 
 
 const HomePage = () => {
+  const [showScrollButton, setShowScrollButton] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollButton(window.scrollY > 300);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  };
 
   return (
     <div className="min-h-screen bg-white text-gray-800 text-sm md:text-[15px]">
 
       {/* Hero Section */}
-      <section className="py-12 px-6 md:px-16 bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      <section id="hero" className="py-12 px-6 md:px-16 bg-gradient-to-br from-blue-50 via-white to-purple-50">
         <div className="max-w-6xl mx-auto text-center">
           <div className="max-w-4xl mx-auto">
             <div className="inline-flex items-center bg-blue-100 text-blue-800 px-4 py-2 rounded-full text-sm font-semibold mb-6">
@@ -324,6 +342,17 @@ const HomePage = () => {
           </div>
         </div>
       </section >
+
+      {/* Bouton Retour en haut */}
+      {showScrollButton && (
+        <button
+          onClick={scrollToTop}
+          className="fixed bottom-8 right-8 bg-gradient-to-r from-blue-600 to-purple-600 text-white p-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110 z-50 cursor-pointer"
+          aria-label="Retour en haut"
+        >
+          <ChevronUp className="w-6 h-6" />
+        </button>
+      )}
 
       {/* Footer */}
       < Footer />
