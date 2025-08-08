@@ -11,15 +11,15 @@ const Navbar = () => {
     };
 
     const navItems = [
-        { name: 'Home', href: '/' },
-        { name: 'About', href: '/about' },
-        { name: 'Contact', href: '/contact' }
+        { name: 'Home', href: '/Home' },
+        { name: 'About', href: '/Home#a-propos' },
+        { name: 'Contact', href: '/Home#contact' }
     ];
 
     const featuresItems = [
         {
             name: 'AI Detection',
-            href: '/ai-detection',
+            href: '/Home#fonctionnalites',
             description: 'Advanced AI algorithms to detect fraudulent patterns',
             icon: Brain,
             color: 'from-blue-500 to-cyan-500',
@@ -27,7 +27,7 @@ const Navbar = () => {
         },
         {
             name: 'Real-time Monitoring',
-            href: '/monitoring',
+            href: '/Home#fonctionnalites',
             description: 'Monitor transactions and activities in real-time',
             icon: Eye,
             color: 'from-green-500 to-emerald-500',
@@ -35,7 +35,7 @@ const Navbar = () => {
         },
         {
             name: 'Risk Assessment',
-            href: '/risk-assessment',
+            href: '/Home#fonctionnalites',
             description: 'Comprehensive risk scoring and assessment tools',
             icon: Shield,
             color: 'from-purple-500 to-indigo-500',
@@ -43,7 +43,7 @@ const Navbar = () => {
         },
         {
             name: 'Analytics Dashboard',
-            href: '/analytics',
+            href: '/Home#fonctionnalites',
             description: 'Detailed analytics and reporting dashboard',
             icon: BarChart3,
             color: 'from-orange-500 to-red-500',
@@ -58,7 +58,7 @@ const Navbar = () => {
 
                     {/* Logo */}
                     <div className="flex items-center">
-                        <Link to="/" className="flex items-center">
+                        <Link to="/Home" className="flex items-center">
                             <div className="w-9 h-9 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mr-3">
                                 <Brain className="w-5 h-5 text-white" />
                             </div>
@@ -88,9 +88,8 @@ const Navbar = () => {
                                         {featuresItems.map((item) => {
                                             const IconComponent = item.icon;
                                             return (
-                                                <Link
-                                                    key={item.name}
-                                                    to={item.href}
+                                                <a
+                                                    href={item.href}
                                                     className="group block p-4 rounded-lg hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 transition-all duration-200"
                                                 >
                                                     <div className="flex items-start space-x-4">
@@ -111,25 +110,25 @@ const Navbar = () => {
                                                             <p className="text-sm text-gray-500 leading-relaxed">{item.description}</p>
                                                         </div>
                                                     </div>
-                                                </Link>
+                                                </a>
                                             );
                                         })}
                                     </div>
                                 </div>
                             </div>
 
-                            <Link
-                                to="/about"
+                            <a
+                                href="/Home#a-propos"
                                 className="text-gray-600 hover:text-blue-600 transition-colors duration-200 font-medium text-sm"
                             >
                                 About
-                            </Link>
-                            <Link
-                                to="/contact"
+                            </a>
+                            <a
+                                href="/Home#contact"
                                 className="text-gray-600 hover:text-blue-600 transition-colors duration-200 font-medium text-sm"
                             >
                                 Contact
-                            </Link>
+                            </a>
                         </div>
                     </div>
 
