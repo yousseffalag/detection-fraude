@@ -8,6 +8,7 @@ import NotFoundPage from '../pages/NotFound';
 import LoginPage from '../pages/guest/login';
 import RegisterPage from '../pages/guest/signup';
 import HomePage from '../pages/guest/home';
+import Dashboard from '../pages/admin/dashboard';
 
 
 const AppRoutes = () => (
@@ -17,6 +18,11 @@ const AppRoutes = () => (
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<RegisterPage />} />
             <Route path="/home" element={<HomePage />} />
+            <Route path="/" element={<HomePage />} />
+        </Route>
+
+        <Route element={<AdminLayout />}>
+            <Route path="/admin" element={<Dashboard />} />
         </Route>
 
         <Route

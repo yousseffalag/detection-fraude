@@ -1,17 +1,20 @@
 import React, { useState } from 'react';
-import { Shield, Brain, Lock, Eye, EyeOff, Mail, CheckCircle, User } from 'lucide-react';
+import { Lock, Eye, EyeOff, Mail, CheckCircle, User, Loader2 } from 'lucide-react';
+import axiosClient from '../../api/axiosClient';
 
 const RegisterPage = () => {
-    const [formData, setFormData] = useState({ 
-        firstName: '', 
-        lastName: '', 
-        email: '', 
-        password: '', 
-        confirmPassword: '' 
+    const [formData, setFormData] = useState({
+        firstName: '',
+        lastName: '',
+        email: '',
+        password: '',
+        confirmPassword: ''
     });
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
 
     const handleInputChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -28,16 +31,48 @@ const RegisterPage = () => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        setError('');
+        setSuccess(false);
+        setIsLoading(true);
+
         if (!formData.firstName || !formData.lastName || !formData.email || !formData.password || !formData.confirmPassword) {
-            setError('Veuillez remplir tous les champs.');
+            setError('All fields are required.');
+            setIsLoading(false);
             return;
         }
-        if (formData.password !== formData.confirmPassword) {
-            setError('Les mots de passe ne correspondent pas.');
-            return;
-        }
-        // Simulation d'inscription
-        console.log('Register data:', formData);
+
+        const registerData = {
+            username: formData.firstName + ' ' + formData.lastName,
+            email: formData.email,
+            password: formData.password,
+            confirm_password: formData.confirmPassword
+        };
+
+        axiosClient.post('/auth/register', registerData)
+            .then(res => {
+                console.log('Registration successful:', res.data);
+                setSuccess(true);
+                setIsLoading(false);
+                setFormData({
+                    firstName: '',
+                    lastName: '',
+                    email: '',
+                    password: '',
+                    confirmPassword: ''
+                });
+            })
+            .catch(err => {
+                if( err.response?.status === 422) {
+                    setIsLoading(false);
+                    console.log('Validation error:', err.response.data);
+                    setError(err.response.data.detail[0].ctx.reason || 'Validation error occurred.');
+                    return;
+                }
+                    
+                setError(err.response?.data?.detail || 'An error occurred during registration.');
+                console.error('Registration error:', err.response.data);
+                setIsLoading(false);
+            })
     };
 
     return (
@@ -47,13 +82,6 @@ const RegisterPage = () => {
                 {/* Présentation (gauche) */}
                 <div className='bg-white flex justify-center p-8 lg:p-20'>
                     <div className="max-w-md ms-8">
-                        {/* Logo */}
-                        {/* <div className="flex items-center mb-8">
-                            <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mr-3">
-                                <Brain className="w-5 h-5 text-white" />
-                            </div>
-                            <span className="text-2xl font-bold text-gray-900">FraudGuard</span>
-                        </div> */}
 
                         {/* Titre */}
                         <h1 className="text-4xl font-bold text-gray-900 mb-6 leading-snug">
@@ -105,6 +133,7 @@ const RegisterPage = () => {
                                                 onChange={handleInputChange}
                                                 placeholder="Prénom"
                                                 className="w-full px-4 py-[10px] pl-12 border text-sm border-gray-300 rounded-lg focus:outline-none"
+                                                disabled={isLoading}
                                             />
                                         </div>
                                     </div>
@@ -120,6 +149,7 @@ const RegisterPage = () => {
                                                 onChange={handleInputChange}
                                                 placeholder="Nom"
                                                 className="w-full px-4 py-[10px] pl-12 border text-sm border-gray-300 rounded-lg focus:outline-none"
+                                                disabled={isLoading}
                                             />
                                         </div>
                                     </div>
@@ -138,6 +168,7 @@ const RegisterPage = () => {
                                             onChange={handleInputChange}
                                             placeholder="votre@email.com"
                                             className="w-full px-4 py-[10px] pl-12 border text-sm border-gray-300 rounded-lg focus:outline-none"
+                                            disabled={isLoading}
                                         />
                                     </div>
                                 </div>
@@ -155,12 +186,14 @@ const RegisterPage = () => {
                                             onChange={handleInputChange}
                                             placeholder="••••••••"
                                             className="w-full px-4 py-[10px] pl-12 pr-12 text-sm border border-gray-300 rounded-lg focus:outline-none"
+                                            disabled={isLoading}
                                         />
                                         <button
                                             type="button"
                                             onClick={togglePasswordVisibility}
                                             className="absolute right-3 top-3 text-gray-400 hover:text-gray-600 transition cursor-pointer"
                                             aria-label="Afficher / masquer mot de passe"
+                                            disabled={isLoading}
                                         >
                                             {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                         </button>
@@ -180,12 +213,14 @@ const RegisterPage = () => {
                                             onChange={handleInputChange}
                                             placeholder="••••••••"
                                             className="w-full px-4 py-[10px] pl-12 pr-12 text-sm border border-gray-300 rounded-lg focus:outline-none"
+                                            disabled={isLoading}
                                         />
                                         <button
                                             type="button"
                                             onClick={toggleConfirmPasswordVisibility}
                                             className="absolute right-3 top-3 text-gray-400 hover:text-gray-600 transition cursor-pointer"
                                             aria-label="Afficher / masquer mot de passe"
+                                            disabled={isLoading}
                                         >
                                             {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                         </button>
@@ -197,9 +232,19 @@ const RegisterPage = () => {
                                     <div className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg p-3">{error}</div>
                                 )}
 
+                                {/* Succès */}
+                                {success && (
+                                    <div className="text-green-600 text-sm bg-green-50 border border-green-200 rounded-lg p-3">Your a compte is created succesfully</div>
+                                )}
+
                                 {/* Terms */}
                                 <div className="flex items-start">
-                                    <input type="checkbox" id="terms" className="w-3.5 h-3 text-blue-600 bg-gray-100 border-gray-300 rounded mt-1 cursor-pointer" />
+                                    <input 
+                                        type="checkbox" 
+                                        id="terms" 
+                                        className="w-3.5 h-3 text-blue-600 bg-gray-100 border-gray-300 rounded mt-1 cursor-pointer" 
+                                        disabled={isLoading}
+                                    />
                                     <label htmlFor="terms" className="ml-2 text-[13px] text-gray-600">
                                         J'accepte les <a className="text-blue-600 hover:underline" href="#">Conditions Générales</a> et la <a className="text-blue-600 hover:underline" href="#">Politique de confidentialité</a>
                                     </label>
@@ -209,9 +254,21 @@ const RegisterPage = () => {
                                 <button
                                     type="submit"
                                     onClick={handleSubmit}
-                                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold py-3 px-6 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl cursor-pointer"
+                                    disabled={isLoading}
+                                    className={`w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-lg flex items-center justify-center ${
+                                        isLoading 
+                                            ? 'opacity-70 cursor-not-allowed' 
+                                            : 'hover:from-blue-700 hover:to-purple-700 hover:shadow-xl cursor-pointer'
+                                    }`}
                                 >
-                                    <span>Créer mon compte</span>
+                                    {isLoading ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                            <span>Création en cours...</span>
+                                        </>
+                                    ) : (
+                                        <span>Créer mon compte</span>
+                                    )}
                                 </button>
 
                                 {/* Connexion */}

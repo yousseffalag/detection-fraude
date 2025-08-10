@@ -1,4 +1,4 @@
-import Footer from '../../components/Footer';
+import Footer from '../../components/guest/Footer';
 import {
   Brain, Shield, BarChart3, CheckCircle, ArrowRight, Play,
   TrendingUp, Users, Database, Award, Clock, Target,

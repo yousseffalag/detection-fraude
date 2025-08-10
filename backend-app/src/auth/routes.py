@@ -6,27 +6,39 @@ from src.database import get_db
 from sqlalchemy.orm import Session
 from src.auth.model import User
 from src.utils.email_utils import send_verification_email
+from sqlalchemy.exc import IntegrityError
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register")
 async def register(user: UserCreate, db: Session = Depends(get_db)):
-    new_user = register_user(db, user.username, user.email, user.password, user.confirm_password)
     
-    # Create email verification token
-    token = create_email_verification_token(user.email)
+    try:
 
-    # Send email (Mailtrap)
-    await send_verification_email(user.email, user.username, token)
+        new_user = register_user(db, user.username, user.email, user.password, user.confirm_password)
+        
+        # Create email verification token
+        token = create_email_verification_token(user.email)
 
-    return {
-        "message": "User registered successfully",
-        "user": {
-            "username": new_user.username,
-            "email": new_user.email
+        # Send email (Mailtrap)
+        await send_verification_email(user.email, user.username, token)
+
+        return {
+            "message": "User registered successfully",
+            "user": {
+                "username": new_user.username,
+                "email": new_user.email
+            }
         }
-    }
+    
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail="Username or email already exists"
+        )
+    
 
 
 @router.post("/login",response_model = Token )
