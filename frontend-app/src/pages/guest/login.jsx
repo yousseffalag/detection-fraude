@@ -1,10 +1,17 @@
 import React, { useState } from 'react';
-import { Shield, Brain, Lock, Eye, EyeOff, Mail, CheckCircle } from 'lucide-react';
+import { Lock, Eye, EyeOff, Mail, CheckCircle } from 'lucide-react';
+import axiosClient from '../../api/axiosClient';
+import { useAuth } from '../../context/authContext';
+
 
 const LoginPage = () => {
     const [formData, setFormData] = useState({ email: '', password: '' });
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
+
+
+    const { login } = useAuth();
+
 
     const handleInputChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -17,13 +24,37 @@ const LoginPage = () => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        setError('');
         if (!formData.email || !formData.password) {
-            setError('Veuillez remplir tous les champs.');
+            setError('All fields are required.');
             return;
         }
         // Simulation de connexion
         console.log('Login data:', formData);
-    };
+
+        axiosClient.post('/auth/login', formData)
+            .then(res => {   
+              console.log('Login successful:', res.data);
+              const token = res.data.access_token;
+              if(token){
+                login(token);
+                console.log('User logged in successfully');
+              }
+            })
+            .catch(err => {
+                 
+                 if (err.status === 403){
+                    console.log("Email is not verified");
+                    setError('Email is not verified');
+                    return;
+                }
+
+                console.error('Login error:', err);
+                setError(err.response?.data?.detail || 'An error occurred during login. Please try again.');
+            });
+
+
+    }
 
     return (
         <div className="flex items-center justify-center min-h-screen">
@@ -68,7 +99,7 @@ const LoginPage = () => {
                                 Connexion à Votre Espace
                             </h2>
                             <p className="text-sm text-gray-500">
-                               Veuillez vous connecter pour accéder à votre tableau de bord sécurisé et lancer vos analyses de fraude en toute sérénité.
+                                Veuillez vous connecter pour accéder à votre tableau de bord sécurisé et lancer vos analyses de fraude en toute sérénité.
                             </p>
                         </div>
 
