@@ -8,7 +8,13 @@ import NotFoundPage from '../pages/NotFound';
 import LoginPage from '../pages/guest/login';
 import RegisterPage from '../pages/guest/signup';
 import HomePage from '../pages/guest/home';
-import Dashboard from '../pages/admin/dashboard';
+import AdminDashboard from '../pages/admin/dashboard';
+import Users from "../pages/admin/users"
+import Transactions from '../pages/admin/transactions';
+import AdminSettingsPage from "../pages/admin/settings"
+import AIModelsAdmin from "../pages/admin/modeleAI"
+import FraudDetectionApp from "../pages/user/transactionPrediction"
+import FraudCSVAnalysis from "../pages/user/transactionsCSV"
 
 
 const AppRoutes = () => (
@@ -22,7 +28,13 @@ const AppRoutes = () => (
         </Route>
 
         <Route element={<AdminLayout />}>
-            <Route path="/admin" element={<Dashboard />} />
+            <Route path="/admin/dashboard" element={<AdminDashboard />} />
+            <Route path="/admin/users" element={<Users />} />
+            <Route path="/admin/transactions" element={<Transactions />} />
+            <Route path="/admin/settings" element={<AdminSettingsPage/>} />
+            <Route path="/admin/modelAI" element={<AIModelsAdmin />} />
+            <Route path="/admin/Prediction" element={<FraudDetectionApp />} />
+            <Route path="/admin/PredictionCSV" element={<FraudCSVAnalysis />} />
         </Route>
 
         <Route
