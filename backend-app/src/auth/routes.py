@@ -73,7 +73,8 @@ async def login(userInfo : UserLogin , db: Session = Depends(get_db)):
 def get_me(current_user: User = Depends(get_verified_user)):
     return {
         "username": current_user.username,
-        "email": current_user.email
+        "email": current_user.email,
+        "role" : current_user.role
     }
 
 

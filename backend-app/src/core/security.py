@@ -4,10 +4,10 @@ from passlib.context import CryptContext
 from dotenv import load_dotenv
 import os
 from src.database import get_db
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException ,status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-from src.auth.model import User
+from src.auth.model import User , UserRole
 
 
 # Load environment variables
@@ -87,3 +87,11 @@ def get_verified_user(user: User = Depends(get_current_user)):
             detail="Email not verified"
         )
     return user
+
+def get_admin_user(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role != UserRole.admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admins only"
+        )
+    return current_user
