@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { 
   Brain, 
   BarChart3, 
@@ -7,8 +8,8 @@ import {
   Settings, 
   User, 
   LogOut 
-} from "lucide-react"
-import { Link } from "react-router-dom"
+} from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 
 import {
   Sidebar,
@@ -19,35 +20,32 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
+
+import { useAuth } from "../../context/authContext";
+import axiosClient from "../../api/axiosClient";
 
 const menuGroups = [
   {
     label: "Vue d'ensemble",
-    items: [
-      { title: "Dashboard", url: "/admin/dashboard", icon: BarChart3 }
-    ]
+    items: [{ title: "Dashboard", url: "/admin/dashboard", icon: BarChart3 }],
   },
   {
     label: "Gestion des données",
     items: [
       { title: "Utilisateurs", url: "/admin/users", icon: Users },
-      { title: "Transactions", url: "/admin/transactions", icon: CreditCard }
-    ]
+      { title: "Transactions", url: "/admin/transactions", icon: CreditCard },
+    ],
   },
   {
     label: "Intelligence Artificielle",
-    items: [
-      { title: "Modèle IA", url: "/admin/modelAI", icon: Bot }
-    ]
+    items: [{ title: "Modèle IA", url: "/admin/modelAI", icon: Bot }],
   },
   {
     label: "Configuration",
-    items: [
-      { title: "Paramètres", url: "/admin/settings", icon: Settings }
-    ]
-  }
-]
+    items: [{ title: "Paramètres", url: "/admin/settings", icon: Settings }],
+  },
+];
 
 const BrandHeader = () => {
   return (
@@ -59,15 +57,34 @@ const BrandHeader = () => {
         <span className="text-lg font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
           FraudGuard
         </span>
-        <div className="text-xs text-gray-500">
-          Admin Panel
-        </div>
+        <div className="text-xs text-gray-500">Admin Panel</div>
       </div>
     </div>
   );
-}
+};
 
 const AdminProfile = () => {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    axiosClient
+      .get("/auth/me")
+      .then((res) => {
+        console.log("User data fetched:", res.data);
+        setUser(res.data);
+      })
+      .catch((err) => {
+        console.error("Erreur fetch /me:", err);
+      });
+  }, []);
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
   return (
     <div className="p-5 border-t border-gray-100 pb-8">
       <div className="flex items-center justify-between">
@@ -78,29 +95,32 @@ const AdminProfile = () => {
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-[12px] text-gray-900 truncate font-medium">
-              John Doe
+              {user ? user.username || user.sub : "Admin User"}
             </div>
             <div className="text-xs text-gray-500 truncate">
-              admin@fraudguard.com
+              {user ? user.email : ""}
             </div>
           </div>
         </div>
 
         {/* Bouton logout */}
-        <button className="ml-2 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer">
+        <button
+          onClick={handleLogout}
+          className="ml-2 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+        >
           <LogOut className="w-4 h-4" />
         </button>
       </div>
     </div>
   );
-}
+};
 
 export function AppSidebar() {
   return (
     <Sidebar className="font-inter">
       <SidebarContent className="bg-white flex flex-col h-full">
         <BrandHeader />
-        
+
         {/* Menu dynamique */}
         <div className="flex-1">
           {menuGroups.map((group) => (
@@ -128,8 +148,9 @@ export function AppSidebar() {
             </SidebarGroup>
           ))}
         </div>
+
         <AdminProfile />
       </SidebarContent>
     </Sidebar>
-  )
+  );
 }

@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import axiosClient from "../../api/axiosClient";
 import {
   BarChart3,
   TrendingUp,
@@ -46,63 +47,39 @@ import {
 } from "lucide-react";
 
 const FraudCSVAnalysis = () => {
+  const [availableModels, setAvailableModels] = useState([]);
   const [selectedModel, setSelectedModel] = useState(null);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingModels, setIsLoadingModels] = useState(true);
   const [predictions, setPredictions] = useState(null);
   const [fileName, setFileName] = useState("");
+  const [file, setFile] = useState(null);
   const fileInputRef = useRef(null);
 
-  // Modèles disponibles
-  const availableModels = [
-    {
-      id: "fraud-xgboost",
-      name: "FraudShield XGBoost",
-      version: "3.0",
-      precision: 96.1,
-      recall: 94.7,
-      f1: 95.4,
-      transactions: 310000,
-      description: "Modèle basé sur XGBoost optimisé pour la détection de fraude financière",
-      architecture: "Gradient Boosted Trees",
-      framework: "XGBoost",
-      color: "bg-gradient-to-r from-blue-500 to-indigo-600",
-      icon: BarChart2
-    },
-    {
-      id: "fraud-cnn",
-      name: "FraudNet CNN",
-      version: "2.1",
-      precision: 92.8,
-      recall: 91.2,
-      f1: 92.0,
-      transactions: 185000,
-      description: "Réseau de neurones convolutif pour l'analyse des séquences transactionnelles",
-      architecture: "Convolutional Neural Network",
-      framework: "TensorFlow",
-      color: "bg-gradient-to-r from-purple-500 to-pink-600",
-      icon: Layers
-    },
-    {
-      id: "fraud-lstm",
-      name: "FraudLSTM Pro",
-      version: "1.5",
-      precision: 94.3,
-      recall: 93.1,
-      f1: 93.7,
-      transactions: 225000,
-      description: "LSTM pour l'analyse temporelle des patterns de transactions",
-      architecture: "Recurrent Neural Network",
-      framework: "PyTorch",
-      color: "bg-gradient-to-r from-green-500 to-teal-600",
-      icon: CpuIcon
-    }
-  ];
+  // Charger les modèles disponibles depuis l'API
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        setIsLoadingModels(true);
+        const response = await axiosClient.get("/ml-models/");
+        setAvailableModels(response.data);
+      } catch (error) {
+        console.error("Erreur lors du chargement des modèles:", error);
+        alert("Impossible de charger les modèles disponibles");
+      } finally {
+        setIsLoadingModels(false);
+      }
+    };
+
+    fetchModels();
+  }, []);
 
   const handleFileUpload = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      setFileName(file.name);
+    const uploadedFile = event.target.files[0];
+    if (uploadedFile) {
+      setFileName(uploadedFile.name);
+      setFile(uploadedFile);
     }
   };
 
@@ -112,7 +89,7 @@ const FraudCSVAnalysis = () => {
       return;
     }
 
-    if (!fileName) {
+    if (!file) {
       alert("Veuillez sélectionner un fichier CSV à analyser");
       return;
     }
@@ -120,47 +97,46 @@ const FraudCSVAnalysis = () => {
     setIsLoading(true);
 
     try {
-      // Simulation d'analyse de fichier CSV
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      const formData = new FormData();
+      formData.append("file", file);
+      // formData.append("ml_model_id", selectedModel.id); // S'assurer que c'est une chaîne
 
-      // Générer des données simulées pour la démonstration
-      const totalTransactions = Math.floor(Math.random() * 1000) + 500;
-      const fraudulentCount = Math.floor(totalTransactions * 0.15);
-      const legitimateCount = totalTransactions - fraudulentCount;
+      const response = await axiosClient.post(`/transactions/predict-batch?ml_model_id=${selectedModel.id}`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
 
-      // Générer des données pour le graphique par type de transaction
-      const transactionTypes = [
-        { type: "PAYMENT", fraudulent: Math.floor(Math.random() * 20), legitimate: Math.floor(Math.random() * 100) },
-        { type: "TRANSFER", fraudulent: Math.floor(Math.random() * 40), legitimate: Math.floor(Math.random() * 60) },
-        { type: "CASH_OUT", fraudulent: Math.floor(Math.random() * 35), legitimate: Math.floor(Math.random() * 40) },
-        { type: "DEBIT", fraudulent: Math.floor(Math.random() * 15), legitimate: Math.floor(Math.random() * 80) },
-        { type: "CASH_IN", fraudulent: Math.floor(Math.random() * 5), legitimate: Math.floor(Math.random() * 120) }
-      ];
+      // Formater les données de réponse pour correspondre à votre structure existante
+      const result = response.data;
 
-      // Générer des données pour le graphique par montant
-      const amountRanges = [
-        { range: "0-1000", fraudulent: Math.floor(Math.random() * 10), legitimate: Math.floor(Math.random() * 150) },
-        { range: "1000-5000", fraudulent: Math.floor(Math.random() * 20), legitimate: Math.floor(Math.random() * 120) },
-        { range: "5000-10000", fraudulent: Math.floor(Math.random() * 25), legitimate: Math.floor(Math.random() * 80) },
-        { range: "10000-50000", fraudulent: Math.floor(Math.random() * 30), legitimate: Math.floor(Math.random() * 50) },
-        { range: "50000+", fraudulent: Math.floor(Math.random() * 40), legitimate: Math.floor(Math.random() * 20) }
-      ];
+      console.log("Données reçues:", result);
 
-      // Générer des données pour le graphique temporel (évolution des fraudes)
-      const timeSeriesData = [
-        { hour: "00h", fraudulent: Math.floor(Math.random() * 5), legitimate: Math.floor(Math.random() * 40) },
-        { hour: "04h", fraudulent: Math.floor(Math.random() * 3), legitimate: Math.floor(Math.random() * 20) },
-        { hour: "08h", fraudulent: Math.floor(Math.random() * 8), legitimate: Math.floor(Math.random() * 60) },
-        { hour: "12h", fraudulent: Math.floor(Math.random() * 12), legitimate: Math.floor(Math.random() * 80) },
-        { hour: "16h", fraudulent: Math.floor(Math.random() * 15), legitimate: Math.floor(Math.random() * 90) },
-        { hour: "20h", fraudulent: Math.floor(Math.random() * 10), legitimate: Math.floor(Math.random() * 70) }
-      ];
+      // Transformer les données de l'API pour correspondre à votre structure
+      const transactionTypes = Object.entries(result.stats.transactions_by_type || {}).map(([type, counts]) => ({
+        type,
+        fraudulent: counts || 0,
+      }));
+
+      const amountRanges = Object.entries(result.stats.transactions_by_amount_range || {}).map(([range, counts]) => ({
+        range,
+        fraudulent: counts || 0,
+      }));
+
+      const timeSeriesData = Object.entries(result.stats.time_series_by_hour || {}).map(([hour, counts]) => ({
+        hour: parseInt(hour),
+        fraudulent: counts.fraudulent || 0,
+        legitimate: counts.legitimate || 0
+      }));
+
+      console.log("TimeSeriesChart data:", timeSeriesData);
+
 
       setPredictions({
-        totalTransactions,
-        fraudulentCount,
-        legitimateCount,
-        fraudPercentage: ((fraudulentCount / totalTransactions) * 100).toFixed(2),
+        totalTransactions: result.stats.total_transactions,
+        fraudulentCount: result.stats.fraud_transactions,
+        legitimateCount: result.stats.legit_transactions,
+        fraudPercentage: result.stats.fraud_percentage,
         transactionTypes,
         amountRanges,
         timeSeriesData,
@@ -168,7 +144,11 @@ const FraudCSVAnalysis = () => {
       });
     } catch (error) {
       console.error("Erreur d'analyse:", error);
-      alert("Une erreur s'est produite lors de l'analyse du fichier.");
+      if (error.response?.status === 422) {
+        alert("Le format du fichier CSV est invalide. Veuillez vérifier qu'il contient les colonnes requises.");
+      } else {
+        alert(error.response?.data?.detail || "Une erreur s'est produite lors de l'analyse du fichier.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -223,6 +203,7 @@ const FraudCSVAnalysis = () => {
       </div>
     );
   };
+
   const BarChartComponent = ({ data, title, color }) => {
     if (!data || !Array.isArray(data)) {
       return (
@@ -277,7 +258,7 @@ const FraudCSVAnalysis = () => {
   };
 
   const TimeSeriesChart = ({ data }) => {
-    if (!data || !Array.isArray(data)) {
+    if (!data || !Array.isArray(data) || data.length === 0) {
       return (
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-xs">
           <div className="flex items-center mb-4">
@@ -291,7 +272,8 @@ const FraudCSVAnalysis = () => {
       );
     }
 
-    const maxValue = Math.max(...data.map(item => (item.fraudulent || 0) + (item.legitimate || 0)));
+    const maxTotal = Math.max(...data.map(item => (item.fraudulent || 0) + (item.legitimate || 0)));
+    const maxBarHeight = 120; // Hauteur fixe en pixels
 
     return (
       <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-xs">
@@ -302,36 +284,57 @@ const FraudCSVAnalysis = () => {
           <h3 className="text-sm font-semibold text-gray-800">Évolution temporelle des transactions</h3>
         </div>
 
-        <div className="flex items-end justify-between h-40 mt-6 border-b border-l border-gray-200 px-2">
-          {data.map((item, index) => {
-            const fraudulent = item.fraudulent || 0;
-            const legitimate = item.legitimate || 0;
-            const total = fraudulent + legitimate;
-            const height = maxValue > 0 ? (total / maxValue) * 100 : 0;
+        <div className="relative mt-6">
+          <div className="ml-4 border-l border-b border-gray-200 pl-4 pb-4">
+            <div className="flex items-end justify-between h-32">
+              {data.map((item, index) => {
+                const fraudulent = item.fraudulent || 0;
+                const legitimate = item.legitimate || 0;
 
-            return (
-              <div key={index} className="flex flex-col items-center" style={{ width: `${100 / data.length}%` }}>
-                <div className="flex flex-col items-center justify-end h-32">
-                  <div className="flex">
-                    <div
-                      className="w-3 bg-gradient-to-t from-green-500 to-green-400 rounded-t transition-all duration-500"
-                      style={{ height: `${legitimate / maxValue * 100}%` }}
-                      title={`Légitimes: ${legitimate}`}
-                    ></div>
-                    <div
-                      className="w-3 bg-gradient-to-t from-red-500 to-red-400 rounded-t ml-0.5 transition-all duration-500"
-                      style={{ height: `${fraudulent / maxValue * 100}%` }}
-                      title={`Frauduleuses: ${fraudulent}`}
-                    ></div>
+                const legitimateHeight = maxTotal > 0 ? (legitimate / maxTotal) * maxBarHeight : 0;
+                const fraudulentHeight = maxTotal > 0 ? (fraudulent / maxTotal) * maxBarHeight : 0;
+
+                return (
+                  <div
+                    key={index}
+                    className="flex flex-col items-center"
+                    style={{ width: `${Math.max(100 / data.length, 6)}%` }}
+                  >
+                    <div className="flex items-end justify-center h-32 mb-2">
+                      <div className="flex items-end">
+                        {legitimate > 0 && (
+                          <div
+                            className="w-4 bg-gradient-to-t from-green-500 to-green-400 rounded-t transition-all duration-500 mr-0.5"
+                            style={{ height: `${legitimateHeight}px` }}
+                            title={`Légitimes: ${legitimate}`}
+                          />
+                        )}
+
+                        {fraudulent > 0 && (
+                          <div
+                            className="w-4 bg-gradient-to-t from-red-500 to-red-400 rounded-t transition-all duration-500"
+                            style={{ height: `${fraudulentHeight}px` }}
+                            title={`Frauduleuses: ${fraudulent}`}
+                          />
+                        )}
+
+                        {(fraudulent + legitimate) === 0 && (
+                          <div className="w-4 h-1 bg-gray-200 rounded" />
+                        )}
+                      </div>
+                    </div>
+
+                    <span className="text-xs text-gray-500 font-medium">
+                      {item.hour !== undefined ? `${item.hour}h` : `T${index + 1}`}
+                    </span>
                   </div>
-                </div>
-                <span className="text-xs text-gray-500 mt-2 truncate">{item.hour}h</span>
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          </div>
         </div>
 
-        <div className="flex justify-center mt-4 space-x-6">
+        <div className="flex justify-center mt-6 space-x-6">
           <div className="flex items-center">
             <div className="w-3 h-3 bg-gradient-to-t from-green-500 to-green-400 rounded-sm mr-2"></div>
             <span className="text-xs text-gray-600">Légitimes</span>
@@ -344,6 +347,7 @@ const FraudCSVAnalysis = () => {
       </div>
     );
   };
+
 
   const RiskMeter = ({ percentage }) => {
     const riskLevel = percentage > 20 ? 'Élevé' : percentage > 10 ? 'Moyen' : 'Faible';
@@ -389,13 +393,13 @@ const FraudCSVAnalysis = () => {
   };
 
   return (
-    <div className="min-h-screen p-4 md:p-6 md:px-8 2xl:px-12 2xl:py-6">
+    <div className="min-h-screen p-4 pb-8 md:px-8">
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center">
-          <h1 className="text-2xl font-bold text-gray-800">Analyse de Fichier CSV</h1>
+          <h1 className="text-[22px] font-bold text-gray-800">Analyse de Fichier CSV</h1>
         </div>
-        <p className="text-gray-600 text-sm mt-1">
+        <p className="text-gray-600 text-[14px] mt-1">
           Analysez un fichier CSV contenant des transactions pour détecter les fraudes.
         </p>
       </div>
@@ -426,55 +430,57 @@ const FraudCSVAnalysis = () => {
                 <button
                   onClick={() => setShowModelDropdown(!showModelDropdown)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm flex items-center justify-between bg-white hover:bg-gray-50 transition-colors"
+                  disabled={isLoadingModels}
                 >
                   <div className="flex items-center">
-                    {selectedModel ? (
+                    {isLoadingModels ? (
+                      <span className="text-gray-500">Chargement des modèles...</span>
+                    ) : selectedModel ? (
                       <>
-                        <div className={`p-2 rounded-lg mr-3 ${selectedModel.color}`}>
-                          <selectedModel.icon className="h-4 w-4 text-white" />
+                        <div className={`p-2 rounded-lg mr-3 bg-gradient-to-r from-blue-500 to-indigo-600`}>
+                          <BarChart2 className="h-4 w-4 text-white" />
                         </div>
                         <div className="text-left">
                           <span className="font-medium text-sm block">{selectedModel.name}</span>
-                          <span className="text-xs text-gray-500">Précision: {selectedModel.precision}%</span>
+                          <span className="text-xs text-gray-500">Précision: {selectedModel.accuracy}%</span>
                         </div>
                       </>
                     ) : (
                       <span className="text-gray-500">Sélectionner un modèle</span>
                     )}
                   </div>
-                  <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${showModelDropdown ? 'rotate-180' : ''}`} />
+                  {!isLoadingModels && (
+                    <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${showModelDropdown ? 'rotate-180' : ''}`} />
+                  )}
                 </button>
 
-                {showModelDropdown && (
+                {showModelDropdown && !isLoadingModels && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
-                    {availableModels.map(model => {
-                      const ModelIcon = model.icon;
-                      return (
-                        <div
-                          key={model.id}
-                          onClick={() => {
-                            setSelectedModel(model);
-                            setShowModelDropdown(false);
-                          }}
-                          className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
-                        >
-                          <div className="flex justify-between items-start">
-                            <div className="flex items-start">
-                              <div className={`p-2 rounded-lg mr-3 ${model.color}`}>
-                                <ModelIcon className="h-4 w-4 text-white" />
-                              </div>
-                              <div>
-                                <div className="font-medium text-sm">{model.name}</div>
-                                <div className="text-xs text-gray-500 mt-1">Précision: {model.precision}% | F1: {model.f1}%</div>
-                              </div>
+                    {availableModels.map(model => (
+                      <div
+                        key={model.id}
+                        onClick={() => {
+                          setSelectedModel(model);
+                          setShowModelDropdown(false);
+                        }}
+                        className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="flex items-start">
+                            <div className={`p-2 rounded-lg mr-3 bg-gradient-to-r from-blue-500 to-indigo-600`}>
+                              <BarChart2 className="h-4 w-4 text-white" />
                             </div>
-                            {selectedModel?.id === model.id && (
-                              <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0 mt-1" />
-                            )}
+                            <div>
+                              <div className="font-medium text-sm">{model.name}</div>
+                              <div className="text-xs text-gray-500 mt-1">Précision: {model.accuracy}%</div>
+                            </div>
                           </div>
+                          {selectedModel?.id === model.id && (
+                            <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0 mt-1" />
+                          )}
                         </div>
-                      );
-                    })}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -619,7 +625,7 @@ const FraudCSVAnalysis = () => {
                         TOTAL
                       </div>
                     </div>
-                    <p className="text-3xl font-bold text-blue-700 mb-3 mt-2">{predictions.totalTransactions.toLocaleString()}</p>
+                    <p className="text-3xl font-bold text-blue-700 mb-3 mt-2">{predictions.totalTransactions}</p>
                     <div className="w-full bg-blue-100 rounded-full h-2">
                       <div
                         className="bg-blue-500 h-2 rounded-full transition-all duration-1000"
@@ -641,7 +647,7 @@ const FraudCSVAnalysis = () => {
                         SÉCURISÉ
                       </div>
                     </div>
-                    <p className="text-3xl font-bold text-green-700 mb-2">{predictions.legitimateCount.toLocaleString()}</p>
+                    <p className="text-3xl font-bold text-green-700 mb-2">{predictions.legitimateCount}</p>
                     <div className="flex items-center justify-between">
                       <div className="w-full bg-green-100 rounded-full h-2 mr-3">
                         <div
@@ -668,7 +674,7 @@ const FraudCSVAnalysis = () => {
                         ALERTE
                       </div>
                     </div>
-                    <p className="text-3xl font-bold text-red-700 mb-2">{predictions.fraudulentCount.toLocaleString()}</p>
+                    <p className="text-3xl font-bold text-red-700 mb-2">{predictions.fraudulentCount}</p>
                     <div className="flex items-center justify-between">
                       <div className="w-full bg-red-100 rounded-full h-2 mr-3">
                         <div
@@ -715,7 +721,6 @@ const FraudCSVAnalysis = () => {
                   </div>
                 </div>
 
-                {/* Bannière de statut */}
                 {/* Bannière de statut */}
                 <div className="p-4">
                   <div className={`flex items-start p-3 rounded-lg ${predictions.fraudulentCount > 50 ?
@@ -828,6 +833,7 @@ const FraudCSVAnalysis = () => {
                   onClick={() => {
                     setPredictions(null);
                     setFileName("");
+                    setFile(null);
                   }}
                   className="flex-1 py-2 px-2 bg-gradient-to-r from-gray-200 to-gray-400 text-white rounded-lg text-[13px] font-medium  flex items-center justify-center cursor-pointer"
                 >

@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends , Path , Body
+from fastapi import APIRouter, Depends , Path , Body, Query
 from src.user.services import get_user_statistics , get_users , delete_user , create_user, update_user
 from typing import Optional
-from src.auth.model import UserRole
+from src.auth.model import UserRole, User
 from src.database import get_db
 from sqlalchemy.orm import Session
 from src.core.security import get_admin_user
@@ -18,9 +18,22 @@ def list_users(
     search: Optional[str] = None,
     role: Optional[UserRole] = None,
     status: Optional[bool] = None,
-    users = Depends(get_users)
+    page: int = Query(1, ge=1, description="Page number"),
+    limit: int = Query(10, ge=1, le=100, description="Number of items per page"),
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user),
 ):
-    return users
+    limit = 5
+    return get_users(
+        db=db,
+        admin=admin,
+        search=search,
+        role=role,
+        status=status,
+        page=page,
+        limit=limit,
+    )
+
 
 @router.delete("/{user_id}", summary="Delete a user (Admin only)")
 def remove_user(

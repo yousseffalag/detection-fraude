@@ -40,6 +40,7 @@ import {
   Lock,
   Bell
 } from "lucide-react";
+import AxiosClient from "../../api/axiosClient"; // Import de votre client Axios configuré
 
 const FraudDetectionApp = () => {
   const [formData, setFormData] = useState({
@@ -60,59 +61,104 @@ const FraudDetectionApp = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState(null);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
+  const [availableModels, setAvailableModels] = useState([]);
+  const [error, setError] = useState(null);
 
-  // Modèles disponibles
-  const availableModels = [
-    {
-      id: "fraud-xgboost",
-      name: "FraudShield XGBoost",
-      version: "3.0",
-      precision: 96.1,
-      recall: 94.7,
-      f1: 95.4,
-      transactions: 310000,
-      description: "Modèle basé sur XGBoost optimisé pour la détection de fraude financière",
-      architecture: "Gradient Boosted Trees",
-      framework: "XGBoost",
-      color: "bg-gradient-to-r from-blue-500 to-indigo-600",
-      icon: BarChart2
-    },
-    {
-      id: "fraud-cnn",
-      name: "FraudNet CNN",
-      version: "2.1",
-      precision: 92.8,
-      recall: 91.2,
-      f1: 92.0,
-      transactions: 185000,
-      description: "Réseau de neurones convolutif pour l'analyse des séquences transactionnelles",
-      architecture: "Convolutional Neural Network",
-      framework: "TensorFlow",
-      color: "bg-gradient-to-r from-purple-500 to-pink-600",
-      icon: Layers
-    },
-    {
-      id: "fraud-lstm",
-      name: "FraudLSTM Pro",
-      version: "1.5",
-      precision: 94.3,
-      recall: 93.1,
-      f1: 93.7,
-      transactions: 225000,
-      description: "LSTM pour l'analyse temporelle des patterns de transactions",
-      architecture: "Recurrent Neural Network",
-      framework: "PyTorch",
-      color: "bg-gradient-to-r from-green-500 to-teal-600",
-      icon: CpuIcon
-    }
-  ];
+  // Icônes par défaut pour les modèles
+  const defaultIcons = {
+    "xgboost": BarChart2,
+    "cnn": Layers,
+    "lstm": CpuIcon,
+    "default": Brain
+  };
+
+  // Fonction pour obtenir l'icône en fonction du type de modèle
+  const getModelIcon = (modelName) => {
+    const lowerName = modelName.toLowerCase();
+    if (lowerName.includes("xgboost")) return defaultIcons.xgboost;
+    if (lowerName.includes("cnn")) return defaultIcons.cnn;
+    if (lowerName.includes("lstm")) return defaultIcons.lstm;
+    return defaultIcons.default;
+  };
+
+  // Charger les modèles disponibles depuis l'API
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const response = await AxiosClient.get("/ml-models");
+
+        console.log("Modèles chargés:", response.data);
+
+        const modelsWithIcons = response.data.map(model => ({
+          ...model,
+          icon: getModelIcon(model.name)
+        }));
+        setAvailableModels(modelsWithIcons);
+
+        // Sélectionner le premier modèle par défaut
+        if (modelsWithIcons.length > 0 && !selectedModel) {
+          setSelectedModel(modelsWithIcons[0]);
+        }
+      } catch (error) {
+        console.error("Erreur lors du chargement des modèles:", error);
+        setError("Impossible de charger les modèles. Utilisation des modèles par défaut.");
+
+        // Modèles par défaut en cas d'erreur
+        const defaultModels = [
+          {
+            id: 1,
+            name: "FraudShield XGBoost",
+            version: "3.0",
+            precision: 96.1,
+            recall: 94.7,
+            f1: 95.4,
+            transactions: 310000,
+            description: "Modèle basé sur XGBoost optimisé pour la détection de fraude financière",
+            architecture: "Gradient Boosted Trees",
+            framework: "XGBoost",
+            color: "bg-gradient-to-r from-blue-500 to-indigo-600",
+            icon: getModelIcon("xgboost")
+          },
+          {
+            id: 2,
+            name: "FraudNet CNN",
+            version: "2.1",
+            precision: 92.8,
+            recall: 91.2,
+            f1: 92.0,
+            transactions: 185000,
+            description: "Réseau de neurones convolutif pour l'analyse des séquences transactionnelles",
+            architecture: "Convolutional Neural Network",
+            framework: "TensorFlow",
+            color: "bg-gradient-to-r from-purple-500 to-pink-600",
+            icon: getModelIcon("cnn")
+          },
+          {
+            id: 3,
+            name: "FraudLSTM Pro",
+            version: "1.5",
+            precision: 94.3,
+            recall: 93.1,
+            f1: 93.7,
+            transactions: 225000,
+            description: "LSTM pour l'analyse temporelle des patterns de transactions",
+            architecture: "Recurrent Neural Network",
+            framework: "PyTorch",
+            color: "bg-gradient-to-r from-green-500 to-teal-600",
+            icon: getModelIcon("lstm")
+          }
+        ];
+        setAvailableModels(defaultModels);
+        if (!selectedModel) {
+          setSelectedModel(defaultModels[0]);
+        }
+      }
+    };
+
+    fetchModels();
+  }, []);
 
   useEffect(() => {
-    // Sélectionner le premier modèle par défaut
-    if (availableModels.length > 0 && !selectedModel) {
-      setSelectedModel(availableModels[0]);
-    }
-
     setPrediction(null);
   }, [formData]);
 
@@ -121,131 +167,65 @@ const FraudDetectionApp = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const generateAdvancedRiskScore = (data) => {
-    let riskScore = 0;
-
-    // Analyse du montant de transaction
-    const amount = parseFloat(data.amt) || 0;
-    if (amount > 200000) riskScore += 35;
-    else if (amount > 100000) riskScore += 25;
-    else if (amount > 50000) riskScore += 15;
-    else if (amount > 10000) riskScore += 8;
-
-    // Type de transaction (TRANSFER et CASH_OUT plus risqués)
-    if (data.type === 'TRANSFER') riskScore += 20;
-    else if (data.type === 'CASH_OUT') riskScore += 25;
-    else if (data.type === 'DEBIT') riskScore += 10;
-    else if (data.type === 'PAYMENT') riskScore += 5;
-
-    // Analyse des soldes
-    const oldBalanceOrig = parseFloat(data.oldbalanceOrg) || 0;
-    const newBalanceOrig = parseFloat(data.newbalanceOrig) || 0;
-    const oldBalanceDest = parseFloat(data.oldbalanceDest) || 0;
-    const newBalanceDest = parseFloat(data.newbalanceDest) || 0;
-
-    // Solde origine devient zéro (vidage de compte suspect)
-    if (oldBalanceOrig > 0 && newBalanceOrig === 0) riskScore += 30;
-
-    // Destination avait un solde zéro qui reste zéro malgré le transfer
-    if (oldBalanceDest === 0 && newBalanceDest === 0 && amount > 0) riskScore += 40;
-
-    // Transaction pendant les heures à risque
-    const hour = parseInt(data.hour) || 0;
-    if (hour >= 0 && hour <= 5) riskScore += 15; // Nuit
-    else if (hour >= 22 && hour <= 23) riskScore += 10; // Tard le soir
-
-    // Weekend (plus de risques)
-    const weekday = parseInt(data.weekday) || 0;
-    if (weekday === 0 || weekday === 6) riskScore += 8; // Dimanche ou Samedi
-
-    // Ajouter de la variance réaliste
-    riskScore += Math.random() * 15;
-
-    return Math.min(Math.max(riskScore, 5), 98);
-  };
-
   const handleSubmit = async () => {
     if (!selectedModel) {
       alert("Veuillez sélectionner un modèle d'analyse");
       return;
     }
 
+    // Validation des données
+    if (!formData.type || !formData.amt || !formData.nameOrig || !formData.nameDest) {
+      alert("Veuillez remplir tous les champs obligatoires");
+      return;
+    }
+
     setIsLoading(true);
+    setError(null);
 
     try {
-      // Simulation d'analyse ML avancée
-      await new Promise(resolve => setTimeout(resolve, 2500));
+      // Préparer les données pour l'API
+      const requestData = {
+        type: formData.type,
+        amt: parseFloat(formData.amt),
+        nameOrig: formData.nameOrig,
+        oldbalanceOrg: parseFloat(formData.oldbalanceOrg) || 0,
+        newbalanceOrig: parseFloat(formData.newbalanceOrig) || 0,
+        nameDest: formData.nameDest,
+        oldbalanceDest: parseFloat(formData.oldbalanceDest) || 0,
+        newbalanceDest: parseFloat(formData.newbalanceDest) || 0,
+        weekday: parseInt(formData.weekday) || new Date().getDay(),
+        hour: parseInt(formData.hour) || new Date().getHours(),
+        ml_model_id: selectedModel.id
+      };
 
-      const riskScore = generateAdvancedRiskScore(formData);
-      const isFraudulent = riskScore > 65;
-      const confidence = (96 - Math.random() * 8).toFixed(1);
+      // Appel à l'API
+      const response = await AxiosClient.post("/transactions/predict", requestData);
+      
+      console.log("Request Data :", requestData);
 
-      // Calcul des variations de solde
-      const oldBalanceOrig = parseFloat(formData.oldbalanceOrg) || 0;
-      const newBalanceOrig = parseFloat(formData.newbalanceOrig) || 0;
-      const oldBalanceDest = parseFloat(formData.oldbalanceDest) || 0;
-      const newBalanceDest = parseFloat(formData.newbalanceDest) || 0;
-      const amount = parseFloat(formData.amt) || 0;
+      console.log("Prediction :", response.data);
 
-      // Facteurs d'impact basés sur les vraies caractéristiques de fraude
-      const factors = [
-        {
-          factor: "Analyse des soldes",
-          impact: riskScore * 0.35,
-          description: oldBalanceOrig > 0 && newBalanceOrig === 0
-            ? "Vidage complet du compte origine détecté"
-            : oldBalanceDest === 0 && newBalanceDest === 0 && amount > 0
-              ? "Compte destination reste à zéro malgré le transfert"
-              : "Variation de soldes cohérente",
-          positive: !(oldBalanceOrig > 0 && newBalanceOrig === 0) && !(oldBalanceDest === 0 && newBalanceDest === 0 && amount > 0),
-          icon: Wallet
-        },
-        {
-          factor: "Type de transaction",
-          impact: riskScore * 0.25,
-          description: formData.type === 'TRANSFER' || formData.type === 'CASH_OUT'
-            ? `Transaction ${formData.type} - Type à risque élevé`
-            : `Transaction ${formData.type} - Type standard`,
-          positive: !['TRANSFER', 'CASH_OUT'].includes(formData.type),
-          icon: ArrowRightLeft
-        },
-        {
-          factor: "Profil montant",
-          impact: riskScore * 0.2,
-          description: amount > 100000
-            ? "Montant très élevé - Transaction inhabituelle"
-            : amount > 50000
-              ? "Montant élevé - Attention requise"
-              : "Montant dans les normes",
-          positive: amount <= 50000,
-          icon: DollarSign
-        },
-        {
-          factor: "Analyse temporelle",
-          impact: riskScore * 0.15,
-          description: parseInt(formData.hour) >= 0 && parseInt(formData.hour) <= 5
-            ? "Transaction nocturne - Horaire suspect"
-            : parseInt(formData.hour) >= 22
-              ? "Transaction tardive - Surveillance renforcée"
-              : "Horaire normal de transaction",
-          positive: parseInt(formData.hour) > 5 && parseInt(formData.hour) < 22,
-          icon: Clock
-        },
-        {
-          factor: "Cohérence des comptes",
-          impact: riskScore * 0.05,
-          description: formData.nameOrig && formData.nameDest
-            ? "Identifiants des comptes valides"
-            : "Informations de comptes incomplètes",
-          positive: formData.nameOrig && formData.nameDest,
-          icon: Building2
-        }
-      ].sort((a, b) => b.impact - a.impact);
+      // Traitement de la réponse
+      const predictionData = response.data;
+
+      // Calcul du score de risque basé sur la probabilité
+      const riskScore = Math.round(predictionData.probability * 100);
+      const isFraudulent = predictionData.prediction === 1;
+
+      // Transformation des facteurs d'influence SHAP en format utilisable
+      const factors = predictionData.influencing_factors ?
+        Object.entries(predictionData.influencing_factors).map(([factor, impact]) => ({
+          factor: factor,
+          impact: Math.abs(impact) * 100,
+          description: getFactorDescription(factor, impact),
+          positive: impact < 0, // Impact négatif signifie réduction du risque
+          icon: getFactorIcon(factor)
+        })).sort((a, b) => b.impact - a.impact) : [];
 
       setPrediction({
         fraudulent: isFraudulent,
-        confidence: confidence,
-        riskScore: riskScore.toFixed(0),
+        confidence: (predictionData.probability * 100).toFixed(1),
+        riskScore: riskScore,
         explanation: isFraudulent
           ? "ALERTE : Cette transaction présente des caractéristiques typiques de fraude financière selon notre modèle d'apprentissage automatique."
           : "Cette transaction semble légitime et respecte les patterns normaux de comportement financier.",
@@ -254,19 +234,43 @@ const FraudDetectionApp = () => {
           ? "BLOCAGE IMMÉDIAT - Investigation manuelle obligatoire"
           : "AUTORISER - Transaction dans les normes acceptables",
         transactionSummary: {
-          amount: amount,
-          balanceChange: oldBalanceOrig - newBalanceOrig,
-          destBalanceChange: newBalanceDest - oldBalanceDest,
+          amount: parseFloat(formData.amt),
+          balanceChange: (parseFloat(formData.oldbalanceOrg) || 0) - (parseFloat(formData.newbalanceOrig) || 0),
+          destBalanceChange: (parseFloat(formData.newbalanceDest) || 0) - (parseFloat(formData.oldbalanceDest) || 0),
           type: formData.type
         },
         modelUsed: selectedModel
       });
     } catch (error) {
       console.error("Erreur de prédiction:", error);
-      alert("Une erreur s'est produite lors de l'analyse.");
+      setError("Une erreur s'est produite lors de l'analyse. Veuillez réessayer.");
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Fonctions utilitaires pour les facteurs d'influence
+  const getFactorDescription = (factor, impact) => {
+    const impactText = Math.abs(impact) > 0.1 ? "impact significatif" : "impact modéré";
+    return impact < 0
+      ? `Réduction du risque (${impactText})`
+      : `Augmentation du risque (${impactText})`;
+  };
+
+  const getFactorIcon = (factor) => {
+    const factorIcons = {
+      "hour_of_day": Clock,
+      "day_of_week": Calendar,
+      "oldbalanceOrg": Wallet,
+      "newbalanceOrig": Wallet,
+      "oldbalanceDest": Building2,
+      "newbalanceDest": Building2,
+      "diff_new_old_balance": TrendingDown,
+      "diff_new_old_destiny": TrendingUp,
+      "ratio_amount_balanceOrig": DollarSign,
+      "type": ArrowRightLeft
+    };
+    return factorIcons[factor] || Activity;
   };
 
   const getRiskColor = (score) => {
@@ -318,16 +322,22 @@ const FraudDetectionApp = () => {
   ];
 
   return (
-    <div className="min-h-screen p-4 md:p-6 md:px-8 2xl:px-12 2xl:py-6">
+    <div className="min-h-screen p-4 pb-8 md:px-8">
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center">
-          <h1 className="text-2xl font-bold text-gray-800">Détection de Fraude Intelligente</h1>
+          <h1 className="text-[22px] font-bold text-gray-800">Détection de Fraude Intelligente</h1>
         </div>
-        <p className="text-gray-600 text-sm mt-1">
+        <p className="text-gray-600 text-[14px] mt-1">
           Système avancé d'analyse transactionnelle utilisant l'intelligence artificielle.
         </p>
       </div>
+
+      {error && (
+        <div className="mb-4 p-4 bg-red-100 border border-red-300 rounded-lg text-red-700">
+          {error}
+        </div>
+      )}
 
       <div className="space-y-6">
         {/* Formulaire */}
@@ -359,12 +369,12 @@ const FraudDetectionApp = () => {
                   <div className="flex items-center">
                     {selectedModel ? (
                       <>
-                        <div className={`p-2 rounded-lg mr-3 ${selectedModel.color}`}>
-                          <selectedModel.icon className="h-4 w-4 text-white" />
+                        <div className={`p-2 rounded-lg mr-3 ${selectedModel.color || "bg-gradient-to-r from-blue-500 to-indigo-600"}`}>
+                          {selectedModel.icon ? <selectedModel.icon className="h-4 w-4 text-white" /> : <Brain className="h-4 w-4 text-white" />}
                         </div>
                         <div className="text-left">
                           <span className="font-medium text-sm block">{selectedModel.name}</span>
-                          <span className="text-xs text-gray-500">Précision: {selectedModel.precision}%</span>
+                          <span className="text-xs text-gray-500">Précision: {(selectedModel.precision * 100).toFixed(1)}% </span>
                         </div>
                       </>
                     ) : (
@@ -377,7 +387,7 @@ const FraudDetectionApp = () => {
                 {showModelDropdown && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
                     {availableModels.map(model => {
-                      const ModelIcon = model.icon;
+                      const ModelIcon = model.icon || Brain;
                       return (
                         <div
                           key={model.id}
@@ -389,12 +399,16 @@ const FraudDetectionApp = () => {
                         >
                           <div className="flex justify-between items-start">
                             <div className="flex items-start">
-                              <div className={`p-2 rounded-lg mr-3 ${model.color}`}>
+                              <div className={`p-2 rounded-lg mr-3 ${model.color || "bg-gradient-to-r from-blue-500 to-indigo-600"}`}>
                                 <ModelIcon className="h-4 w-4 text-white" />
                               </div>
                               <div>
                                 <div className="font-medium text-sm">{model.name}</div>
-                                <div className="text-xs text-gray-500 mt-1">Précision: {model.precision}% | F1: {model.f1}%</div>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  Précision: {(model.precision * 100).toFixed(1)}% |
+                                  F1: {(model.f1_score * 100).toFixed(1)}% |
+                                  Recall: {(model.recall * 100).toFixed(1)}%
+                                </div>
                               </div>
                             </div>
                             {selectedModel?.id === model.id && (
@@ -419,7 +433,7 @@ const FraudDetectionApp = () => {
                 {/* Type de transaction */}
                 <div className="md:col-span-2 lg:col-span-1">
                   <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Type de transaction
+                    Type de transaction *
                   </label>
                   <select
                     name="type"
@@ -440,7 +454,7 @@ const FraudDetectionApp = () => {
                 {/* Montant */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Montant (€)
+                    Montant (€) *
                   </label>
                   <input
                     type="number"
@@ -465,7 +479,6 @@ const FraudDetectionApp = () => {
                     value={formData.date}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                    required
                   />
                 </div>
 
@@ -484,7 +497,6 @@ const FraudDetectionApp = () => {
                       placeholder="HH"
                       min="0"
                       max="23"
-                      required
                     />
                   </div>
                   <div>
@@ -500,7 +512,6 @@ const FraudDetectionApp = () => {
                       placeholder="MM"
                       min="0"
                       max="59"
-                      required
                     />
                   </div>
                 </div>
@@ -517,7 +528,7 @@ const FraudDetectionApp = () => {
                 {/* Compte origine */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Compte origine
+                    Compte origine *
                   </label>
                   <input
                     type="text"
@@ -533,7 +544,7 @@ const FraudDetectionApp = () => {
                 {/* Compte destination */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Compte destination
+                    Compte destination *
                   </label>
                   <input
                     type="text"
@@ -742,8 +753,8 @@ const FraudDetectionApp = () => {
                   </div>
                 </div>
 
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <p className="text-gray-700 text-sm">{prediction.explanation}</p>
+                <div className={`p-4 rounded-lg ${prediction.fraudulent ? 'bg-red-100' : 'bg-green-100' } `}>
+                  <p className={`text-sm ${prediction.fraudulent ? 'text-red-600' : 'text-green-600' } `}>{prediction.explanation}</p>
                 </div>
               </div>
             </div>

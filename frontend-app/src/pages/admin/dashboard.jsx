@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
+import axiosClient from "../../api/axiosClient";
 import {
   Activity,
   AlertTriangle,
@@ -45,21 +46,22 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
 // -----------------------
-// Données simulées (inchangées)
+// Données simulées (pour le fallback)
 // -----------------------
-const TRANSACTION_TYPES = ["CASH_OUT", "TRANSFER", "CASH_IN", "DEBIT"];
+const TRANSACTION_TYPES = ["CASH_OUT", "TRANSFER", "CASH_IN", "DEBIT", "PAYMENT"];
 const LABELS_FR = {
   CASH_OUT: "Retrait (CASH_OUT)",
   TRANSFER: "Virement (TRANSFER)",
   CASH_IN: "Dépôt (CASH_IN)",
   DEBIT: "Débit (DEBIT)",
+  PAYMENT: "Paiement (PAYMENT)",
 };
 
 const CHANNELS = ["Web", "Mobile", "Agence"];
 
 // Génère 520 transactions sur 45 jours
 const MOCK_TX = Array.from({ length: 520 }, (_, i) => {
-  const type = TRANSACTION_TYPES[i % 4];
+  const type = TRANSACTION_TYPES[i % 5];
   const amount = Math.floor(50 + Math.random() * 10000);
   const isFraud = Math.random() < (type === "TRANSFER" ? 0.08 : type === "CASH_OUT" ? 0.06 : 0.03);
   const status = isFraud ? "Fraude" : "Légitime";
@@ -79,17 +81,19 @@ const MOCK_TX = Array.from({ length: 520 }, (_, i) => {
   };
 });
 
-const MODEL_METRICS = {
-  accuracy: 98.4,
-  precision: 96.8,
-  recall: 94.2,
-  f1: 95.5,
-  updatedAt: "2025-08-10 14:30:25",
-  version: "v1.8.3",
+// Métriques par défaut (fallback)
+const DEFAULT_MODEL_METRICS = {
+  n_models: 3,
+  avg_accuracy: 93.2,
+  avg_precision: 87.5,
+  avg_recall: 91.3,
+  avg_f1_score: 89.1,
+  updatedAt: new Date().toLocaleString("fr-FR"),
+  version: "v2.1.0"
 };
 
 // -----------------------
-// Utilitaires (inchangés)
+// Utilitaires
 // -----------------------
 function formatNumber(n) {
   return (n ?? 0).toLocaleString("fr-FR");
@@ -126,8 +130,54 @@ const COLORS = [
 // -----------------------
 export default function ProfessionalDashboard() {
   const [timeRange, setTimeRange] = useState("week");
+  const [apiData, setApiData] = useState(null);
+  const [mlModelsData, setMlModelsData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [mlModelsLoading, setMlModelsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [mlModelsError, setMlModelsError] = useState(null);
 
-  // Filtrage par date uniquement
+  // Appel à l'API pour récupérer les statistiques des transactions
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        setLoading(true);
+        const response = await axiosClient.get("/transactions/stats/yearly");
+        setApiData(response.data);
+        setError(null);
+      } catch (err) {
+        console.error("Erreur lors de la récupération des données:", err);
+        setError("Impossible de charger les données. Affichage des données de démonstration.");
+        // On continue avec les données simulées en cas d'erreur
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
+
+  // Appel à l'API pour récupérer les statistiques des modèles ML
+  useEffect(() => {
+    const fetchMlModelsStats = async () => {
+      try {
+        setMlModelsLoading(true);
+        const response = await axiosClient.get("/ml-models/stats");
+        setMlModelsData(response.data);
+        setMlModelsError(null);
+      } catch (err) {
+        console.error("Erreur lors de la récupération des statistiques ML:", err);
+        setMlModelsError("Impossible de charger les statistiques des modèles ML. Utilisation des données par défaut.");
+        // On utilise les données par défaut en cas d'erreur
+      } finally {
+        setMlModelsLoading(false);
+      }
+    };
+
+    fetchMlModelsStats();
+  }, []);
+
+  // Filtrage par date uniquement (utilise MOCK_TX pour la démo)
   const filtered = useMemo(() => {
     const cutoffDays = { today: 1, week: 7, month: 30, all: 365 }[timeRange] || 7;
     const minDate = new Date();
@@ -138,8 +188,21 @@ export default function ProfessionalDashboard() {
     });
   }, [timeRange]);
 
-  // KPIs
+  // KPIs - Utilise les données de l'API si disponibles
   const totals = useMemo(() => {
+    if (apiData) {
+      return {
+        total: apiData.total_transactions.value,
+        fraud: apiData.fraud_transactions.value,
+        legit: apiData.nonfraud_transactions.value,
+        fraudRate: apiData.fraud_rate.value,
+        avgAmount: 0, // Non fourni par l'API
+        sumAmount: 0, // Non fourni par l'API
+        sumFraudAmount: 0, // Non fourni par l'API
+      };
+    }
+
+    // Fallback aux données simulées si l'API n'est pas disponible
     const total = filtered.length;
     const fraud = filtered.filter((t) => t.isFraud).length;
     const sumAmount = filtered.reduce((s, t) => s + t.amount, 0);
@@ -153,9 +216,20 @@ export default function ProfessionalDashboard() {
       sumAmount,
       sumFraudAmount,
     };
-  }, [filtered]);
+  }, [filtered, apiData]);
 
+  // Fraudes par type - Utilise les données de l'API si disponibles
   const byType = useMemo(() => {
+    if (apiData) {
+      return apiData.fraud_by_type.map((item) => ({
+        type: item.type,
+        total: item.total,
+        fraud: item.fraud,
+        rate: item.fraud_rate,
+      }));
+    }
+
+    // Fallback aux données simulées
     return TRANSACTION_TYPES.map((tp) => {
       const arr = filtered.filter((t) => t.type === tp);
       const total = arr.length;
@@ -167,7 +241,50 @@ export default function ProfessionalDashboard() {
         rate: total ? parseFloat(((100 * fraud) / total).toFixed(1)) : 0,
       };
     });
-  }, [filtered]);
+  }, [filtered, apiData]);
+
+  // Distribution des montants - Utilise les données de l'API si disponibles
+  const amountHist = useMemo(() => {
+    if (apiData) {
+      return apiData.amount_distribution.map((item) => ({
+        bucket: item.range,
+        total: item.total,
+        fraud: item.fraud,
+      }));
+    }
+
+    // Fallback aux données simulées
+    const bins = [0, 100, 250, 500, 1000, 2500, 5000, 10000, 20000];
+    const counters = bins.slice(0, -1).map((b, i) => ({
+      bucket: `${bins[i]}-${bins[i + 1]}`,
+      total: 0,
+      fraud: 0,
+    }));
+    filtered.forEach((t) => {
+      const idx = bins.findIndex((b) => t.amount <= b) - 1;
+      const bi = idx >= 0 ? idx : bins.length - 2;
+      counters[bi].total += 1;
+      if (t.isFraud) counters[bi].fraud += 1;
+    });
+    return counters;
+  }, [filtered, apiData]);
+
+  // Métriques des modèles ML - Utilise les données de l'API si disponibles
+  const modelMetrics = useMemo(() => {
+    if (mlModelsData) {
+      return {
+        n_models: mlModelsData.n_models || 0,
+        accuracy: (mlModelsData.avg_accuracy || 0) * 100,
+        precision: (mlModelsData.avg_precision || 0) * 100,
+        recall: (mlModelsData.avg_recall || 0) * 100,
+        f1: (mlModelsData.avg_f1_score || 0) * 100,
+        updatedAt: new Date().toLocaleString("fr-FR"),
+        version: "v2.1.0"
+      };
+    }
+
+    return DEFAULT_MODEL_METRICS;
+  }, [mlModelsData]);
 
   const trendDaily = useMemo(() => {
     const days = [...Array(14).keys()].reverse().map((i) => {
@@ -182,23 +299,6 @@ export default function ProfessionalDashboard() {
     });
     return days;
   }, []);
-
-  // Histogramme des montants
-  const amountHist = useMemo(() => {
-    const bins = [0, 100, 250, 500, 1000, 2500, 5000, 10000, 20000];
-    const counters = bins.slice(0, -1).map((b, i) => ({
-      bucket: `${bins[i]}-${bins[i + 1]}`,
-      total: 0,
-      fraud: 0,
-    }));
-    filtered.forEach((t) => {
-      const idx = bins.findIndex((b) => t.amount <= b) - 1;
-      const bi = idx >= 0 ? idx : bins.length - 2;
-      counters[bi].total += 1;
-      if (t.isFraud) counters[bi].fraud += 1;
-    });
-    return counters;
-  }, [filtered]);
 
   // Top utilisateurs suspects
   const topUsers = useMemo(() => {
@@ -221,6 +321,36 @@ export default function ProfessionalDashboard() {
 
   return (
     <div className="min-h-screen">
+      {/* Indicateur de chargement */}
+      {loading && (
+        <div className="fixed inset-0 bg-white bg-opacity-80 flex items-center justify-center z-50">
+          <div className="flex flex-col items-center">
+            <RefreshCw className="w-8 h-8 text-blue-600 animate-spin mb-2" />
+            <p className="text-gray-600">Chargement des données...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Message d'erreur */}
+      {error && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-md mb-4 mx-4">
+          <div className="flex items-center">
+            <AlertTriangle className="w-5 h-5 mr-2" />
+            <span>{error}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Message d'erreur pour les modèles ML */}
+      {mlModelsError && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-md mb-4 mx-4">
+          <div className="flex items-center">
+            <AlertTriangle className="w-5 h-5 mr-2" />
+            <span>{mlModelsError}</span>
+          </div>
+        </div>
+      )}
+
       <main className="p-4 md:p-6 md:px-8 2xl:px-12 2xl:py-6">
         {/* Header avec titre et contrôles */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
@@ -230,11 +360,15 @@ export default function ProfessionalDashboard() {
           </div>
 
           <div className="flex items-center gap-3">
-            <Button size="sm" className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700">
+            <Button
+              size="sm"
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 cursor-pointer"
+              onClick={() => exportCSV(filtered)}
+            >
               <Download className="w-4 h-4" />
               Exporter
             </Button>
-            <div className="flex items-center gap-2 bg-white rounded-lg border border-gray-200 px-3 py-2">
+            {/* <div className="flex items-center gap-2 bg-white rounded-lg border border-gray-200 px-3 py-2">
               <Calendar className="w-4 h-4 text-gray-500" />
               <select
                 value={timeRange}
@@ -246,7 +380,7 @@ export default function ProfessionalDashboard() {
                 <option value="month">30 derniers jours</option>
                 <option value="all">Tout</option>
               </select>
-            </div>
+            </div> */}
           </div>
         </div>
 
@@ -282,7 +416,7 @@ export default function ProfessionalDashboard() {
           <KpiCard
             icon={<AlertTriangle className="w-5 h-5" />}
             title="Taux de fraude"
-            value={`${totals.fraudRate}%`}
+            value={`${totals.fraudRate.toFixed(1)}%`}
             trend="-2%"
             trendUp={false}
             color="text-amber-600"
@@ -359,20 +493,24 @@ export default function ProfessionalDashboard() {
             </CardHeader>
             <CardContent className="p-4 pt-0">
               <div className="space-y-4">
-                <MetricProgress label="Exactitude" value={MODEL_METRICS.accuracy} color="indigo" />
-                <MetricProgress label="Précision" value={MODEL_METRICS.precision} color="green" />
-                <MetricProgress label="Rappel" value={MODEL_METRICS.recall} color="amber" />
-                <MetricProgress label="F1-Score" value={MODEL_METRICS.f1} color="purple" />
+                <MetricProgress label="Exactitude" value={modelMetrics.accuracy} color="indigo" />
+                <MetricProgress label="Précision" value={modelMetrics.precision} color="green" />
+                <MetricProgress label="Rappel" value={modelMetrics.recall} color="amber" />
+                <MetricProgress label="F1-Score" value={modelMetrics.f1} color="purple" />
 
                 <Separator className="my-2" />
 
                 <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-600">Nombre de modèles</span>
+                  <span className="font-medium">{modelMetrics.n_models}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
                   <span className="text-gray-600">Dernière MAJ</span>
-                  <span className="font-medium">{MODEL_METRICS.updatedAt}</span>
+                  <span className="font-medium">{modelMetrics.updatedAt}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span className="text-xs text-gray-500">Modèle actif - {MODEL_METRICS.version}</span>
+                  <span className="text-xs text-gray-500">Modèle actif - {modelMetrics.version}</span>
                 </div>
               </div>
             </CardContent>
@@ -390,7 +528,7 @@ export default function ProfessionalDashboard() {
               <CardDescription>Répartition des incidents détectés</CardDescription>
             </CardHeader>
             <CardContent className="p-4 pt-0">
-              <div className="h-56">
+              <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -440,7 +578,7 @@ export default function ProfessionalDashboard() {
                     </div>
                     <div className="text-right">
                       <p className="font-bold text-gray-800 text-sm">{type.fraud}</p>
-                      <p className="text-xs text-gray-500">{type.rate}% de fraude</p>
+                      <p className="text-xs text-gray-500">{type.rate.toFixed(1)}% de fraude</p>
                     </div>
                   </div>
                 ))}
@@ -496,7 +634,7 @@ export default function ProfessionalDashboard() {
         </Card>
 
         {/* Tables de données */}
-        <div className="grid grid-cols-1 xl:grids-cols-2 gap-5 mb-6">
+        <div className="grid grid-cols-1 gap-5 mb-6">
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -620,7 +758,6 @@ export default function ProfessionalDashboard() {
               </div>
             </CardContent>
           </Card>
-
         </div>
 
         {/* Footer */}
@@ -695,12 +832,12 @@ function MetricProgress({ label, value, color }) {
     <div className="space-y-1">
       <div className="flex items-center justify-between text-xs">
         <span className="font-medium text-gray-700">{label}</span>
-        <span className="font-bold">{value}%</span>
+        <span className="font-bold">{value ? value.toFixed(1) : '0.0'}%</span>
       </div>
       <div className={`w-full ${colors.light} rounded-full h-1.5 overflow-hidden`}>
         <div
           className={`h-1.5 ${colors.bg} rounded-full`}
-          style={{ width: `${value}%` }}
+          style={{ width: `${value || 0}%` }}
         ></div>
       </div>
     </div>

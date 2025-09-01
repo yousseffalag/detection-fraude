@@ -2,12 +2,15 @@ import React, { useState } from 'react';
 import { Lock, Eye, EyeOff, Mail, CheckCircle } from 'lucide-react';
 import axiosClient from '../../api/axiosClient';
 import { useAuth } from '../../context/authContext';
+import { jwtDecode } from 'jwt-decode';
+import { useNavigate } from "react-router-dom";
 
 
 const LoginPage = () => {
     const [formData, setFormData] = useState({ email: '', password: '' });
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
+    const navigate = useNavigate();
 
 
     const { login } = useAuth();
@@ -33,17 +36,23 @@ const LoginPage = () => {
         console.log('Login data:', formData);
 
         axiosClient.post('/auth/login', formData)
-            .then(res => {   
-              console.log('Login successful:', res.data);
-              const token = res.data.access_token;
-              if(token){
-                login(token);
-                console.log('User logged in successfully');
-              }
+            .then(res => {
+                const token = res.data.access_token;
+                if (token) {
+                    login(token);
+                    console.log('User logged in successfully');
+                    const decoded = jwtDecode(token);
+                    if (decoded.role === "admin") {
+                        navigate("/admin/dashboard", { replace: true });
+                    } else if (decoded.role === "user") {
+                        navigate("/dashboard", { replace: true });
+                    }
+
+                }
             })
             .catch(err => {
-                 
-                 if (err.status === 403){
+
+                if (err.status === 403) {
                     console.log("Email is not verified");
                     setError('Email is not verified');
                     return;

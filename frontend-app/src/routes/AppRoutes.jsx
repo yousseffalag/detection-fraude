@@ -15,6 +15,10 @@ import AdminSettingsPage from "../pages/admin/settings"
 import AIModelsAdmin from "../pages/admin/modeleAI"
 import FraudDetectionApp from "../pages/user/transactionPrediction"
 import FraudCSVAnalysis from "../pages/user/transactionsCSV"
+import UsersStatic from '../pages/admin/usersStatic';
+import TransactionsUser from '../pages/user/transactionsHistory';
+import UserProfilePage from '../pages/user/profile';
+import UserDashboard from "../pages/user/dashboard";
 
 
 const AppRoutes = () => (
@@ -28,13 +32,7 @@ const AppRoutes = () => (
         </Route>
 
         <Route element={<AdminLayout />}>
-            <Route path="/admin/dashboard" element={<AdminDashboard />} />
-            <Route path="/admin/users" element={<Users />} />
-            <Route path="/admin/transactions" element={<Transactions />} />
-            <Route path="/admin/settings" element={<AdminSettingsPage/>} />
-            <Route path="/admin/modelAI" element={<AIModelsAdmin />} />
-            <Route path="/admin/Prediction" element={<FraudDetectionApp />} />
-            <Route path="/admin/PredictionCSV" element={<FraudCSVAnalysis />} />
+            <Route path="/admin/userStatic" element={<UsersStatic />} />
         </Route>
 
         <Route
@@ -45,6 +43,12 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         >
+            <Route path="prediction" element={<FraudDetectionApp />} />
+            <Route path="predictionCSV" element={<FraudCSVAnalysis />} /> 
+            <Route path="transactionsHistory" element={<TransactionsUser />} />
+            <Route path="profile" element={<UserProfilePage />} />
+            <Route path="dashboard" element={<UserDashboard />} />
+
         </Route>
 
 
@@ -56,6 +60,11 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         >
+            <Route path="dashboard" element={<AdminDashboard />} />
+            <Route path="users" element={<Users />} />
+            <Route path="transactions" element={<Transactions />} />
+            <Route path="settings" element={<AdminSettingsPage />} />
+            <Route path="modelAI" element={<AIModelsAdmin />} />
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />

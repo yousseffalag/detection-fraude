@@ -17,9 +17,13 @@ axiosClient.interceptors.response.use(
   response => response,
   error => {
     const status = error.response?.status;
-    if (status === 401 && localStorage.getItem('token')) {
+    if (status === 401) {
+      console.log("Unauthorized! Redirecting to login...");
       localStorage.removeItem('token');
-      window.location.href = '/login';
+      // Évitez les redirections multiples avec un flag
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }

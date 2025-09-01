@@ -25,7 +25,6 @@ class Transaction(Base):
     isFraud = Column(Integer, nullable=False)
     weekday = Column(Integer, nullable=False)
     hour = Column(Integer, nullable=False)
-    minute = Column(Integer, nullable=False)
 
     probability = Column(Float, nullable=True)  
     influencing_factors = Column(JSON, nullable=True)  
@@ -35,3 +34,7 @@ class Transaction(Base):
     # 🔑 Relation avec User
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  
     user = relationship("User", back_populates="transactions")
+
+    # 🔑 Relation avec MLModel
+    ml_model_id = Column(Integer, ForeignKey("ml_models.id"), nullable=True)
+    ml_model = relationship("MLModel", back_populates="transactions")

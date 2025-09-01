@@ -77,11 +77,14 @@ def get_users(
     admin: User = Depends(get_admin_user),
     search: Optional[str] = None,
     role: Optional[UserRole] = None,
+    page: int = 1,
+    limit: int = 5,
     status: Optional[bool] = None
 ) -> List[dict]:
+    
     query = db.query(User)
 
-    # 🔎 Filtre texte (nom ou email)
+    # 🔎 Filtre texte
     if search:
         query = query.filter(
             or_(
@@ -94,24 +97,37 @@ def get_users(
     if role:
         query = query.filter(User.role == role)
 
-    # ✅ Filtre statut (active/inactive)
+    # ✅ Filtre statut
     if status is not None:
         query = query.filter(User.is_verified == status)
 
-    users = query.all()
+    total = query.count()  # Total des utilisateurs après filtres
+
+    # Pagination
+    users = query.offset((page - 1) * limit).limit(limit).all()
 
     # Transformation en dictionnaire
-    result = []
-    for user in users:
-        result.append({
+    result = [
+        {
+            "id": user.id,
             "username": user.username,
             "email": user.email,
             "role": user.role.value if isinstance(user.role, UserRole) else user.role,
-            "status": user.is_verified ,
+            "status": user.is_verified,
             "joinDate": user.created_at.strftime("%Y-%m-%d") if user.created_at else None
-        })
+        }
+        for user in users
+    ]
 
-    return result
+    return {
+        "users": result,
+        "pagination": {
+            "page": page,
+            "limit": limit,
+            "total": total,
+            "pages": (total + limit - 1) // limit  # Calcul du nombre de pages
+        }
+    }
 
 def delete_user(user_id: int, db: Session = Depends(get_db), admin: User = Depends(get_admin_user)):
     user = db.query(User).filter(User.id == user_id).first()

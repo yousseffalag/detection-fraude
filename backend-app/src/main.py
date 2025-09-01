@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from src.auth.routes import router as auth_router
 from src.user.routes import router as user_router
 from src.transaction.routes import router as transaction_router
+from src.ML_Model.routes import router as ml_models_router
 from src.database import Base, engine
 from src.auth.model import User
 from src.transaction.model import Transaction
@@ -12,7 +13,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # allow all for testing
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],  # allow all for testing
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -26,6 +27,7 @@ def startup_event():
 app.include_router(auth_router)
 app.include_router(user_router)
 app.include_router(transaction_router)
+app.include_router(ml_models_router)
 
 @app.get("/", tags=["test"])
 def root():
