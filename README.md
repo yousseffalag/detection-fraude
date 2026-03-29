@@ -115,8 +115,6 @@
 
 ## 🖼️ Captures d'écran
 
-> **Note :** Pour afficher les captures d'écran, ajoutez un dossier `screenshots/` à la racine du repo et copiez-y les images ci-dessous.
-
 ### 🏠 Page d'accueil
 
 Interface publique avant authentification — métriques clés, call-to-action et présentation des fonctionnalités.
