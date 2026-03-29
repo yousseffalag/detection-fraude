@@ -201,38 +201,8 @@ Démonstration de l'endpoint `POST /transactions/predict` avec corps JSON et ré
 
 ### Vue d'ensemble 3-tiers
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                         FRONTEND  🐳                              │
-│                    Interface Web — React.js                       │
-└──────────────────────────────┬───────────────────────────────────┘
-                               │
-          ┌────────────────────┼─────────────────────┐
-          │ 3. Requête JWT     │ 8. Résultats + SHAP  │ 1. Auth
-          ▼                    ▼                       ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                    BACKEND / LOGIQUE MÉTIER  🐳                   │
-│                                                                   │
-│  ┌─────────────┐   ┌─────────────┐   ┌──────────────────────┐   │
-│  │ 2. Import   │──▶│3. Prétraite │──▶│  Encodage Variables  │   │
-│  │  Validation │   │  Nettoyage  │   │     Catégorielles     │   │
-│  └─────────────┘   └─────────────┘   └──────────────────────┘   │
-│  ┌─────────────┐   ┌─────────────┐   ┌──────────────────────┐   │
-│  │ 4. Feature  │──▶│5. Prédiction│──▶│  6. Explicabilité    │   │
-│  │ Engineering │   │ Modèle .pkl │   │     SHAP Values      │   │
-│  └─────────────┘   └─────────────┘   └──────────────────────┘   │
-│                                                                   │
-│  ┌───────────────────────────────┐  ┌─────────────────────────┐  │
-│  │   API Gateway — FastAPI       │  │  Auth Service — JWT      │  │
-│  └───────────────────────────────┘  └─────────────────────────┘  │
-│                        7. Persistance                             │
-└──────────────────────────────┬───────────────────────────────────┘
-                               │
-┌──────────────────────────────▼───────────────────────────────────┐
-│                        DATABASE  🐳                               │
-│                          PostgreSQL                               │
-└──────────────────────────────────────────────────────────────────┘
-```
+[!Architecture](screenshots/architecture_fraude.png)
+
 
 ### Flux de traitement en 8 étapes
 
@@ -249,61 +219,10 @@ Démonstration de l'endpoint `POST /transactions/predict` avec corps JSON et ré
 
 ### Diagramme de séquence — Prédiction unitaire
 
-```
-Utilisateur    Interface Web    Module Prédiction    Modèle ML    Base de données
-     │               │                 │                 │               │
-     │──Accès form──▶│                 │                 │               │
-     │               │──Récup. modèles────────────────────────────────▶│
-     │               │◀─Modèles dispo──────────────────────────────────│
-     │◀─Affich. form─│                 │                 │               │
-     │──Saisie txn──▶│                 │                 │               │
-     │               │──Valide données▶│                 │               │
-     │               │──Soumet txn────▶│                 │               │
-     │               │                 │──Prétraite─────▶│               │
-     │               │                 │──Exécute pred──▶│               │
-     │               │                 │◀─isFraud, prob──│               │
-     │               │                 │──Calc. SHAP────▶│               │
-     │               │                 │◀─influencing────│               │
-     │               │                 │──Sauvegarde──────────────────▶│
-     │               │◀─Résultats──────│                 │               │
-     │◀─Affichage────│                 │                 │               │
-```
+[!Diagramme de Sequence](screenshots/prediction_sequence.png)
 
 ### Modélisation des données
-
-```
-┌──────────────────────┐  1       *  ┌───────────────────────┐
-│      Utilisateur     │─────────────│      Transaction       │
-├──────────────────────┤             ├───────────────────────┤
-│ id: Integer          │             │ id: Integer            │
-│ username: String     │             │ type: TransactionType  │
-│ email: String        │             │   ├ CASH_IN            │
-│ password: String     │             │   ├ CASH_OUT           │
-│ role: UserRole       │             │   ├ PAYMENT            │
-│   ├ User             │             │   ├ TRANSFER           │
-│   └ Admin            │             │   └ DEBIT              │
-│ is_verified: Boolean │             │ amount: Double         │
-│ created_at: DateTime │             │ nameOrig: String       │
-└──────────────────────┘             │ nameDest: String       │
-                                     │ weekday: Integer       │
-┌──────────────────────┐  1    *     │ hour: Integer          │
-│       ML_Model       │─────────────└───────────────────────┘
-├──────────────────────┤                           │ 1
-│ id: Integer          │                           │
-│ name: String         │             ┌─────────────▼──────────┐
-│ algorithm: Enum      │─────────────│   RésultatPrédiction   │
-│   ├ XGBoost ✅       │             ├────────────────────────┤
-│   ├ RandomForest     │             │ id: Integer             │
-│   ├ LogisticReg.     │             │ isFraud: Boolean        │
-│   ├ SVM              │             │ probability: Float      │
-│   └ LGBM             │             │ f1_score: Float         │
-│ file_path: String    │             │ influencing_factors: JSON│
-│ precision: Float     │             │ created_at: DateTime    │
-│ recall: Float        │             └────────────────────────┘
-│ accuracy: Float      │
-│ created_at: DateTime │
-└──────────────────────┘
-```
+[!Diagramme de Classe](screenshots/daig_classe.png)
 
 ---
 
