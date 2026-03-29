@@ -196,13 +196,17 @@ Démonstration de l'endpoint `POST /transactions/predict` avec corps JSON et ré
 ![Postman](screenshots/ui_postman.png)
 
 ---
+---
 
 ## 🏗️ Architecture du système
 
 ### Vue d'ensemble 3-tiers
 
-[!Architecture](screenshots/architecture_fraude.png)
+<div align="center">
+  <img src="screenshots/architecture_fraude.png" alt="Architecture" width="600"/>
+</div>
 
+---
 
 ### Flux de traitement en 8 étapes
 
@@ -219,10 +223,18 @@ Démonstration de l'endpoint `POST /transactions/predict` avec corps JSON et ré
 
 ### Diagramme de séquence — Prédiction unitaire
 
-[!Diagramme de Sequence](screenshots/prediction_sequence.png)
+<div align="center">
+  <img src="screenshots/prediction_sequence.png" alt="Architecture" width="600"/>
+</div>
+
+---
 
 ### Modélisation des données
-[!Diagramme de Classe](screenshots/daig_classe.png)
+
+<div align="center">
+  <img src="screenshots/daig_classe.png" alt="Architecture" width="600"/>
+</div>
+
 
 ---
 
@@ -733,13 +745,13 @@ CASH_OUT,800.00,C555444333,900.00,100.00,C999888777,200.00,1000.00,0,3
 
 ### FALAG Youssef
 
-*Étudiant BDCC · ENSET Mohammedia · Promotion 2025*
+*Étudiant BDCC · ENSET Mohammedia ·*
 
 <br/>
 
 [![GitHub](https://img.shields.io/badge/GitHub-yousseffalag-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/yousseffalag)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Youssef_Falag-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://linkedin.com/in/yousseffalag)
-[![Email](https://img.shields.io/badge/Email-ussef%40gmail.com-EA4335?style=for-the-badge&logo=gmail&logoColor=white)](mailto:ussef@gmail.com)
+[![Email](https://img.shields.io/badge/Email-ussef%40gmail.com-EA4335?style=for-the-badge&logo=gmail&logoColor=white)](mailto:falagyoussef@gmail.com)
 
 <br/>
 
@@ -751,7 +763,7 @@ Si ce projet vous a été utile, n'hésitez pas à lui donner une ⭐ !
 
 **[detection-fraude](https://github.com/yousseffalag/detection-fraude)** — *Détectez les fraudes avant qu'elles n'impactent vos finances* 🛡️
 
-*Réalisé avec ❤️ — Stage d'Initiation 2025*
+*Stage d'Initiation 2025*
 
 </sub>
 
