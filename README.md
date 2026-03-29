@@ -20,7 +20,7 @@
 <br/>
 
 > 🎓 *Stage d'Initiation – Filière BDCC – ENSET Mohammedia – Université Hassan II de Casablanca*  
-> 🏢 *Réalisé au sein de **Vala Orange**, AGADIR · Juillet 2025*
+> 🏢 *Réalisé au sein de **Vala Orange**, AGADIR · Juillet - Aout 2025*
 
 <br/>
 
@@ -733,7 +733,7 @@ CASH_OUT,800.00,C555444333,900.00,100.00,C999888777,200.00,1000.00,0,3
 | 📚 **Filière** | BDCC (Big Data & Cloud Computing) |
 | 🏢 **Entreprise d'accueil** | Vala Orange — Immeuble Safwa, Boulevard Hassan 1er, Dakhla |
 | 👨‍💼 **Encadrant entreprise** | M. Neuman Charhbili — Développeur SEO |
-| 📅 **Période de stage** | 01/07/2025 – 31/07/2025 |
+| 📅 **Période de stage** | 20/07/2025 – 30/08/2025 |
 | 📄 **Type de stage** | Stage d'Initiation |
 | 🗓️ **Année universitaire** | 2024–2025 |
 
