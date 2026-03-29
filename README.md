@@ -745,13 +745,6 @@ CASH_OUT,800.00,C555444333,900.00,100.00,C999888777,200.00,1000.00,0,3
 
 *Étudiant BDCC · ENSET Mohammedia ·*
 
-<br/>
-
-[![GitHub](https://img.shields.io/badge/GitHub-yousseffalag-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/yousseffalag)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Youssef_Falag-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://linkedin.com/in/yousseffalag)
-[![Email](https://img.shields.io/badge/Email-ussef%40gmail.com-EA4335?style=for-the-badge&logo=gmail&logoColor=white)](mailto:falagyoussef@gmail.com)
-
-<br/>
 
 ---
 
