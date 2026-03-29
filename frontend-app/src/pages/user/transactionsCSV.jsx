@@ -45,6 +45,9 @@ import {
   BarChart as BarChartIcon,
   PieChart as PieChartIcon
 } from "lucide-react";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import Chart from 'chart.js/auto';
 
 const FraudCSVAnalysis = () => {
   const [availableModels, setAvailableModels] = useState([]);
@@ -63,6 +66,7 @@ const FraudCSVAnalysis = () => {
       try {
         setIsLoadingModels(true);
         const response = await axiosClient.get("/ml-models/");
+        console.log("Modèles chargés:", response.data);
         setAvailableModels(response.data);
       } catch (error) {
         console.error("Erreur lors du chargement des modèles:", error);
@@ -83,76 +87,92 @@ const FraudCSVAnalysis = () => {
     }
   };
 
+const handleDownloadReport = async () => {
+    // Assurez-vous que les librairies jsPDF, autoTable, et Chart.js sont chargées
+    if (!predictions) {
+        alert("Aucune donnée à exporter. Veuillez d'abord analyser un fichier.");
+        return;
+    }
+    console.log("Génération du rapport PDF...");
+  }
   const handleAnalyzeCSV = async () => {
-    if (!selectedModel) {
-      alert("Veuillez sélectionner un modèle d'analyse");
-      return;
-    }
+  if (!selectedModel) {
+    alert("Veuillez sélectionner un modèle d'analyse");
+    return;
+  }
 
-    if (!file) {
-      alert("Veuillez sélectionner un fichier CSV à analyser");
-      return;
-    }
+  if (!file) {
+    alert("Veuillez sélectionner un fichier CSV à analyser");
+    return;
+  }
 
-    setIsLoading(true);
+  setIsLoading(true);
 
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      // formData.append("ml_model_id", selectedModel.id); // S'assurer que c'est une chaîne
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
 
-      const response = await axiosClient.post(`/transactions/predict-batch?ml_model_id=${selectedModel.id}`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+    const response = await axiosClient.post(
+      `/transactions/predict-batch?ml_model_id=${selectedModel.id}`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } }
+    );
 
-      // Formater les données de réponse pour correspondre à votre structure existante
-      const result = response.data;
+    const result = response.data;
+    console.log("Données reçues:", result);
 
-      console.log("Données reçues:", result);
-
-      // Transformer les données de l'API pour correspondre à votre structure
-      const transactionTypes = Object.entries(result.stats.transactions_by_type || {}).map(([type, counts]) => ({
+    // Transformer transactions_by_type
+    const transactionTypes = Object.entries(result.stats.transactions_by_type || {}).map(
+      ([type, counts]) => ({
         type,
-        fraudulent: counts || 0,
-      }));
-
-      const amountRanges = Object.entries(result.stats.transactions_by_amount_range || {}).map(([range, counts]) => ({
-        range,
-        fraudulent: counts || 0,
-      }));
-
-      const timeSeriesData = Object.entries(result.stats.time_series_by_hour || {}).map(([hour, counts]) => ({
-        hour: parseInt(hour),
         fraudulent: counts.fraudulent || 0,
-        legitimate: counts.legitimate || 0
-      }));
+        legitimate: counts.legitimate || 0,
+        total: counts.total || 0
+      })
+    );
 
-      console.log("TimeSeriesChart data:", timeSeriesData);
+    // Transformer transactions_by_amount_range
+    const amountRanges = Object.entries(result.stats.transactions_by_amount_range || {}).map(
+      ([range, counts]) => ({
+        range,
+        fraudulent: counts.fraudulent || 0,
+        legitimate: counts.legitimate || 0,
+        total: counts.total || 0
+      })
+    );
 
+    // Transformer time_series_by_hour
+    const timeSeriesData = Object.entries(result.stats.time_series_by_hour || {}).map(
+      ([hour, counts]) => ({
+        hour: parseInt(hour, 10),
+        fraudulent: counts.fraudulent || 0,
+        legitimate: counts.legitimate || 0,
+        total: counts.total || 0
+      })
+    );
 
-      setPredictions({
-        totalTransactions: result.stats.total_transactions,
-        fraudulentCount: result.stats.fraud_transactions,
-        legitimateCount: result.stats.legit_transactions,
-        fraudPercentage: result.stats.fraud_percentage,
-        transactionTypes,
-        amountRanges,
-        timeSeriesData,
-        modelUsed: selectedModel
-      });
-    } catch (error) {
-      console.error("Erreur d'analyse:", error);
-      if (error.response?.status === 422) {
-        alert("Le format du fichier CSV est invalide. Veuillez vérifier qu'il contient les colonnes requises.");
-      } else {
-        alert(error.response?.data?.detail || "Une erreur s'est produite lors de l'analyse du fichier.");
-      }
-    } finally {
-      setIsLoading(false);
+    setPredictions({
+      totalTransactions: result.stats.total_transactions,
+      fraudulentCount: result.stats.fraud_transactions,
+      legitimateCount: result.stats.legit_transactions,
+      fraudPercentage: result.stats.fraud_percentage,
+      transactionTypes,
+      amountRanges,
+      timeSeriesData,
+      modelUsed: selectedModel
+    });
+
+  } catch (error) {
+    console.error("Erreur d'analyse:", error);
+    if (error.response?.status === 422) {
+      alert("Le format du fichier CSV est invalide. Veuillez vérifier qu'il contient les colonnes requises.");
+    } else {
+      alert(error.response?.data?.detail || "Une erreur s'est produite lors de l'analyse du fichier.");
     }
-  };
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const FraudPieChart = ({ fraudulent, legitimate }) => {
     const total = fraudulent + legitimate;
@@ -442,7 +462,7 @@ const FraudCSVAnalysis = () => {
                         </div>
                         <div className="text-left">
                           <span className="font-medium text-sm block">{selectedModel.name}</span>
-                          <span className="text-xs text-gray-500">Précision: {selectedModel.accuracy}%</span>
+                          <span className="text-xs text-gray-500">F1 Score: {(selectedModel.f1_score * 100).toFixed(2)} %</span>
                         </div>
                       </>
                     ) : (
@@ -472,7 +492,10 @@ const FraudCSVAnalysis = () => {
                             </div>
                             <div>
                               <div className="font-medium text-sm">{model.name}</div>
-                              <div className="text-xs text-gray-500 mt-1">Précision: {model.accuracy}%</div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                  Précision: {(model.precision * 100).toFixed(1)}% |
+                                  F1: {(model.f1_score * 100).toFixed(1)}% |
+                                  Recall: {(model.recall * 100).toFixed(1)}%</div>
                             </div>
                           </div>
                           {selectedModel?.id === model.id && (
@@ -825,7 +848,9 @@ const FraudCSVAnalysis = () => {
             {/* Actions */}
             <div className="bg-white mx-32 my-6">
               <div className="flex flex-col md:flex-row justify-center items-center gap-4">
-                <button className="flex-1 py-2 px-2 text-white bg-gradient-to-r from-blue-600 to-indigo-700 font-medium rounded-lg text-[13px] flex items-center justify-center cursor-pointer">
+                <button className="flex-1 py-2 px-2 text-white bg-gradient-to-r from-blue-600 to-indigo-700 font-medium rounded-lg text-[13px] flex items-center justify-center cursor-pointer"
+                 onClick={handleDownloadReport}
+                >
                   <Download className="h-4 w-4 mr-2" />
                   Télécharger Le Rapport
                 </button>

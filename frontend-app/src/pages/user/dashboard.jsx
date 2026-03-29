@@ -128,8 +128,8 @@ export default function UserDashboard() {
         setLoading(true);
         const response = await axiosClient.get("/transactions/user/stats");
         setApiData(response.data);
-        setError(null);
         setLoading(false);
+        setError(null);
       } catch (err) {
         console.error("Erreur lors de la récupération des données:", err);
         setError("Impossible de charger vos données. Affichage des données de démonstration.");
@@ -246,7 +246,7 @@ export default function UserDashboard() {
   }, [filtered]);
 
   // 5 dernières transactions (données simulées uniquement)
-  const lastTransactions = useMemo(() => 
+  const lastTransactions = useMemo(() =>
     [...filtered]
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice(0, 5),
@@ -259,11 +259,13 @@ export default function UserDashboard() {
       {loading && (
         <div className="fixed inset-0 bg-white bg-opacity-80 flex items-center justify-center z-50">
           <div className="flex flex-col items-center">
-            <RefreshCw className="w-8 h-8 text-blue-600 animate-spin mb-2" />
-            <p className="text-gray-600">Chargement de vos données...</p>
+            {/* Spinner circulaire */}
+            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p className="text-gray-600 text-lg">Chargement de vos données...</p>
           </div>
         </div>
       )}
+
 
       {/* Message d'erreur */}
       {error && (
@@ -377,14 +379,14 @@ export default function UserDashboard() {
                       tick={{ fontSize: 11 }}
                       axisLine={false}
                       tickLine={false}
-                      tickFormatter={(value) => new Date(value).toLocaleDateString('fr-FR', {day: 'numeric', month: 'short'})}
+                      tickFormatter={(value) => new Date(value).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                     />
                     <YAxis
                       tick={{ fontSize: 11 }}
                       axisLine={false}
                       tickLine={false}
                     />
-                    <Tooltip 
+                    <Tooltip
                       labelFormatter={(value) => new Date(value).toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     />
                     <Legend />
@@ -471,7 +473,7 @@ export default function UserDashboard() {
                       axisLine={false}
                       tickLine={false}
                     />
-                    <Tooltip 
+                    <Tooltip
                       formatter={(value, name) => [`${value}`, name === "total" ? "Total" : "Frauduleuses"]}
                       labelFormatter={(value) => LABELS_FR[value] || value}
                     />

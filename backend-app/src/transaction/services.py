@@ -29,7 +29,6 @@ def convert_shap_to_json(shap_dict):
         return None
     return {k: float(v) for k, v in shap_dict.items()}
 
-
 def predict_transaction_service(db: Session, data: schemas.TransactionPredictionRequest, user_id: int):
     """Prédit si une transaction est frauduleuse, calcule SHAP et sauvegarde."""
 
@@ -43,28 +42,16 @@ def predict_transaction_service(db: Session, data: schemas.TransactionPrediction
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur chargement pipeline: {e}")
 
-    # ⚡ Calibration automatique si nécessaire
-    classifier = pipeline.named_steps['classifier']
-    if not hasattr(classifier, "calibrated") or not classifier.calibrated:
-        # Utiliser sigmoid pour calibration
-        calibrated_clf = CalibratedClassifierCV(classifier, method='sigmoid', cv='prefit')
-        # ⚠️ Attention : ici X_train_sample et y_train_sample doivent être fournis depuis un dataset réel
-        # Pour l'exemple, tu peux utiliser un échantillon de ton dataset d'entraînement
-        # Ex : calibrated_clf.fit(X_train_sample, y_train_sample)
-        pipeline.named_steps['classifier'] = calibrated_clf
-        calibrated_clf.calibrated = True
-
-    # 2️⃣ Préparer le DataFrame d'entrée
+    # 2️⃣ Préparer le DataFrame d'entrée (colonnes brutes)
     df = pd.DataFrame([{
-        "hour_of_day": data.hour,
-        "day_of_week": data.weekday,
+        "hour": data.hour,
+        "nameOrig": data.nameOrig,
+        "nameDest": data.nameDest,
         "oldbalanceOrg": data.oldbalanceOrg,
         "newbalanceOrig": data.newbalanceOrig,
         "oldbalanceDest": data.oldbalanceDest,
         "newbalanceDest": data.newbalanceDest,
-        "diff_new_old_balance": data.newbalanceOrig - data.oldbalanceOrg,
-        "diff_new_old_destiny": data.newbalanceDest - data.oldbalanceDest,
-        "ratio_amount_balanceOrig": data.amt / (data.oldbalanceOrg + 1e-6),
+        "amount": data.amt,
         "type": data.type
     }])
 
@@ -81,21 +68,24 @@ def predict_transaction_service(db: Session, data: schemas.TransactionPrediction
 
     # 5️⃣ Calcul des SHAP values
     try:
-        preprocessor: ColumnTransformer = pipeline.named_steps['preprocessor']
-        X_transformed = preprocessor.transform(df)
-
-        cat_cols = preprocessor.named_transformers_['cat'].get_feature_names_out(['type'])
-        num_cols = ['hour_of_day','day_of_week','oldbalanceOrg','newbalanceOrig','oldbalanceDest',
-                    'newbalanceDest','diff_new_old_balance','diff_new_old_destiny','ratio_amount_balanceOrig']
+        # On transforme df avec le pipeline complet jusqu'à XGB
+        # FeatureEngineer et preprocessing sont inclus dans le pipeline
+        X_transformed = pipeline.named_steps['preprocess'].transform(
+            pipeline.named_steps['features'].transform(df)
+        )
+        
+        # Colonnes après transformation
+        cat_cols = pipeline.named_steps['preprocess'].named_transformers_['cat'].get_feature_names_out(['type'])
+        num_cols = pipeline.named_steps['preprocess'].named_transformers_['num'].feature_names_in_
         all_cols = list(num_cols) + list(cat_cols)
-
         X_transformed_df = pd.DataFrame(X_transformed, columns=all_cols)
 
+        # SHAP TreeExplainer
         explainer = shap.TreeExplainer(pipeline.named_steps['classifier'])
         shap_values = explainer.shap_values(X_transformed_df)
         shap_dict = dict(zip(X_transformed_df.columns, shap_values[0]))
 
-        # Normaliser les SHAP values pour éviter des valeurs énormes
+        # Normalisation
         max_abs = max(abs(v) for v in shap_dict.values()) or 1
         shap_dict_normalized = {k: float(v) / max_abs for k, v in shap_dict.items()}
         shap_dict_json = convert_shap_to_json(shap_dict_normalized)
@@ -132,6 +122,7 @@ def predict_transaction_service(db: Session, data: schemas.TransactionPrediction
     )
 
 
+
 def predict_transactions_batch(
     db: Session,
     user_id: int,
@@ -141,74 +132,72 @@ def predict_transactions_batch(
 ):
     """
     Prédit plusieurs transactions à partir d'un DataFrame ou CSV.
-    Retourne les prédictions détaillées + statistiques globales.
-    Inclut : niveau de risque global, répartition par type et par montant.
+    Retourne les prédictions détaillées + statistiques globales :
+    - nombre total de transactions
+    - nombre légitimes et frauduleuses
+    - répartition par type (avec légitimes et frauduleuses)
+    - répartition par plages de montant (avec légitimes et frauduleuses)
+    - évolution temporelle par heure
+    Compatible avec le pipeline FeatureEngineer + Preprocessor + XGBClassifier.
     """
 
-    # 1️⃣ Charger les données
-    if df is None:
-        if csv_path is None:
-            raise ValueError("Un DataFrame ou un chemin CSV doit être fourni.")
-        try:
-            df = pd.read_csv(csv_path)
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Erreur lecture CSV: {e}")
-
-    # 2️⃣ Vérifier les colonnes nécessaires
-    required_cols = [
-        "type", "amount", "nameOrig", "oldbalanceOrg", "newbalanceOrig",
-        "nameDest", "oldbalanceDest", "newbalanceDest", "hour_of_day", "day_of_week"
-    ]
-    missing = [c for c in required_cols if c not in df.columns]
-    if missing:
-        raise HTTPException(status_code=400, detail=f"Colonnes manquantes: {missing}")
-
-    # 3️⃣ Charger le pipeline
+    # -----------------------------
+    # 2️⃣ Charger le pipeline ML
+    # -----------------------------
     ml_model = db.query(MLModel).filter(MLModel.id == ml_model_id).first()
     if not ml_model or not ml_model.file_path:
         raise HTTPException(status_code=404, detail="ML Model introuvable")
-    try:
-        pipeline = joblib.load(ml_model.file_path)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur chargement pipeline: {e}")
+    pipeline = joblib.load(ml_model.file_path)
 
-    # 4️⃣ Feature engineering
-    df["diff_new_old_balance"] = df["newbalanceOrig"] - df["oldbalanceOrg"]
-    df["diff_new_old_destiny"] = df["newbalanceDest"] - df["oldbalanceDest"]
-    df["ratio_amount_balanceOrig"] = np.where(df["oldbalanceOrg"] > 0,
-                                              df["amount"] / df["oldbalanceOrg"], 0)
-    numeric_cols = ["amount", "oldbalanceOrg", "newbalanceOrig",
-                    "oldbalanceDest", "newbalanceDest", "hour_of_day", "day_of_week",
-                    "diff_new_old_balance", "diff_new_old_destiny", "ratio_amount_balanceOrig"]
-    df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, errors="coerce").fillna(0)
-    df["type"] = df["type"].astype(str).str.strip()
-
-    # 5️⃣ Transformation via le pipeline
-    try:
-        preprocessor: ColumnTransformer = pipeline.named_steps['preprocessor']
-        X_transformed = preprocessor.transform(df)
-
-        cat_cols = preprocessor.named_transformers_['cat'].get_feature_names_out(['type'])
-        num_cols = ["hour_of_day","day_of_week","oldbalanceOrg","newbalanceOrig",
-                    "oldbalanceDest","newbalanceDest","diff_new_old_balance",
-                    "diff_new_old_destiny","ratio_amount_balanceOrig"]
-        all_cols = list(num_cols) + list(cat_cols)
-        X_transformed_df = pd.DataFrame(X_transformed, columns=all_cols)
-
-        classifier = pipeline.named_steps['classifier']
-        preds = classifier.predict(X_transformed_df)
-        probs = classifier.predict_proba(X_transformed_df)[:, 1]
-
-        # SHAP
-        explainer = shap.TreeExplainer(classifier)
-        shap_values = explainer.shap_values(X_transformed_df)
-    except Exception:
-        raise HTTPException(status_code=500, detail="Erreur transformation ou prédiction batch")
-
-    # 6️⃣ Stocker les résultats
     results = []
-    for idx, row in df.iterrows():
-        factors = {col: float(shap_values[idx][i]) for i, col in enumerate(X_transformed_df.columns)}
+
+    # -----------------------------
+    # 3️⃣ Boucle sur chaque transaction
+    # -----------------------------
+    for _, row in df.iterrows():
+        single_df = pd.DataFrame([{
+            "hour": row["hour"],
+            "nameOrig": row["nameOrig"],
+            "nameDest": row["nameDest"],
+            "oldbalanceOrg": row["oldbalanceOrg"],
+            "newbalanceOrig": row["newbalanceOrig"],
+            "oldbalanceDest": row["oldbalanceDest"],
+            "newbalanceDest": row["newbalanceDest"],
+            "amount": row["amount"],
+            "type": row["type"]
+        }])
+
+        # Prédiction
+        try:
+            prob_raw = float(pipeline.predict_proba(single_df)[0][1])
+            prob = soften_probability(prob_raw, factor=5)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Erreur prédiction: {e}")
+
+        # Prédiction binaire
+        threshold = ml_model.best_threshold if ml_model.best_threshold else 0.5
+        pred = int(prob >= threshold)
+
+        # SHAP (optionnel)
+        try:
+            X_transformed = pipeline.named_steps['preprocess'].transform(
+                pipeline.named_steps['features'].transform(single_df)
+            )
+            cat_cols = pipeline.named_steps['preprocess'].named_transformers_['cat'].get_feature_names_out(['type'])
+            num_cols = pipeline.named_steps['preprocess'].named_transformers_['num'].feature_names_in_
+            all_cols = list(num_cols) + list(cat_cols)
+            X_transformed_df = pd.DataFrame(X_transformed, columns=all_cols)
+
+            explainer = shap.TreeExplainer(pipeline.named_steps['classifier'])
+            shap_values = explainer.shap_values(X_transformed_df)
+            shap_dict = dict(zip(X_transformed_df.columns, shap_values[0]))
+            max_abs = max(abs(v) for v in shap_dict.values()) or 1
+            shap_dict_normalized = {k: float(v) / max_abs for k, v in shap_dict.items()}
+            shap_dict_json = convert_shap_to_json(shap_dict_normalized)
+        except Exception:
+            shap_dict_json = None
+
+        # Sauvegarde en DB
         transaction = Transaction(
             type=row["type"],
             amt=row["amount"],
@@ -218,11 +207,11 @@ def predict_transactions_batch(
             nameDest=row["nameDest"],
             oldbalanceDest=row["oldbalanceDest"],
             newbalanceDest=row["newbalanceDest"],
-            isFraud=int(preds[idx]),
-            weekday=row["day_of_week"],
-            hour=row["hour_of_day"],
-            probability=float(probs[idx]),
-            influencing_factors=factors,
+            isFraud=pred,
+            weekday=row.get("day_of_week", 0),
+            hour=row["hour"],
+            probability=float(prob),
+            influencing_factors=shap_dict_json,
             user_id=user_id,
             ml_model_id=ml_model_id
         )
@@ -231,58 +220,71 @@ def predict_transactions_batch(
         db.refresh(transaction)
 
         results.append(schemas.TransactionPredictionResponse(
-            prediction=int(preds[idx]),
-            probability=float(probs[idx]),
-            influencing_factors=factors
+            prediction=pred,
+            probability=float(prob),
+            influencing_factors=shap_dict_json
         ))
 
-    # 7️⃣ Statistiques globales
+    # -----------------------------
+    # 4️⃣ Statistiques globales détaillées
+    # -----------------------------
     total = len(results)
     legit = sum(1 for r in results if r.prediction == 0)
     fraud = total - legit
-    avg_risk = round(float(np.mean(probs)) * 100, 2) if total else 0
+    avg_risk = round(float(np.mean([r.probability for r in results])) * 100, 2) if total else 0
 
+    # Ajouter colonnes nécessaires
+    df["prediction"] = [r.prediction for r in results]
+    df["probability"] = [r.probability for r in results]
+    df["hour_of_day"] = pd.to_numeric(df["hour"], errors="coerce").fillna(0).astype(int)
+    df["day_of_week"] = pd.to_numeric(df.get("day_of_week", 0), errors="coerce").fillna(0).astype(int)
 
-    df["prediction"] = preds
-    df["probability"] = probs
-
-    df["hour_of_day"] = pd.to_numeric(df["hour_of_day"], errors="coerce").fillna(0).astype(int)
-    df["day_of_week"] = pd.to_numeric(df["day_of_week"], errors="coerce").fillna(0).astype(int)
-
-
-
-    time_series = {h: {"fraudulent": 0, "legitimate": 0} for h in range(24)}
+    # 1️⃣ Évolution temporelle par heure
+    time_series = {}
     for h in range(24):
         hour_df = df[df["hour_of_day"] == h]
-        if not hour_df.empty:
-           time_series[h]["fraudulent"] = int((hour_df["prediction"] == 1).sum())
-           time_series[h]["legitimate"] = int((hour_df["prediction"] == 0).sum())
+        time_series[h] = {
+            "fraudulent": int((hour_df["prediction"] == 1).sum()),
+            "legitimate": int((hour_df["prediction"] == 0).sum()),
+            "total": len(hour_df)
+        }
 
+    # 2️⃣ Répartition par type
+    types = {}
+    for t, group in df.groupby("type"):
+        types[t] = {
+            "fraudulent": int((group["prediction"] == 1).sum()),
+            "legitimate": int((group["prediction"] == 0).sum()),
+            "total": len(group)
+        }
 
-
-
-    # Répartition par type
-    type_counts = df['type'].value_counts().to_dict()
-
-    # Répartition par plage de montant
+    # 3️⃣ Répartition par plages de montant
     bins = [0, 1000, 5000, 10000, 50000, np.inf]
     labels = ["0-1k", "1k-5k", "5k-10k", "10k-50k", "50k+"]
-    df['amount_range'] = pd.cut(df['amount'], bins=bins, labels=labels, include_lowest=True)
-    amount_counts = df['amount_range'].value_counts().sort_index().to_dict()
+    df["amount_range"] = pd.cut(df["amount"], bins=bins, labels=labels, include_lowest=True)
+    amounts = {}
+    for r, group in df.groupby("amount_range"):
+        amounts[str(r)] = {
+            "fraudulent": int((group["prediction"] == 1).sum()),
+            "legitimate": int((group["prediction"] == 0).sum()),
+            "total": len(group)
+        }
 
+    # Statistiques finales
     stats = {
         "total_transactions": total,
         "legit_transactions": legit,
-        "legit_percentage": round(100 * legit / total, 2) if total else 0,
         "fraud_transactions": fraud,
+        "legit_percentage": round(100 * legit / total, 2) if total else 0,
         "fraud_percentage": round(100 * fraud / total, 2) if total else 0,
         "average_risk_percentage": avg_risk,
-        "transactions_by_type": type_counts,
+        "transactions_by_type": types,
         "time_series_by_hour": time_series,
-        "transactions_by_amount_range": amount_counts
+        "transactions_by_amount_range": amounts
     }
 
     return {"transactions": results, "stats": stats}
+
 
 
 def get_stats(db: Session):

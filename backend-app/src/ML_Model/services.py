@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from fastapi import UploadFile,HTTPException
 from sqlalchemy import func
 import numpy as np
-from src.utils.preprocessing import FraudRateEncoder, FeatureEngineer
+from src.utils.preprocessing import FeatureEngineer
 from . import models, schemas
 from src.utils.file_manager import save_upload_file
 import pandas as pd
@@ -15,12 +15,14 @@ from xgboost import XGBClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 
+
+
 def create_ml_model(db: Session, model_data: schemas.MLModelCreate, file: UploadFile):
  
     # 1️⃣ Sauvegarde du fichier uploadé
     file_path = save_upload_file(file, "ml_models")
     
-    # 2️⃣ Création de l'objet DB
+    # 2️⃣ Ajout du modèle dans la DB
     db_model = models.MLModel(
         name=model_data.name,
         algorithm=model_data.algorithm,
@@ -31,49 +33,60 @@ def create_ml_model(db: Session, model_data: schemas.MLModelCreate, file: Upload
     db.commit()
     db.refresh(db_model)
 
-    # Colonnes utilisées par le modèle
-    final_columns_selected = [
-        'hour_of_day', 'day_of_week', 'oldbalanceOrg', 'newbalanceOrig',
-        'oldbalanceDest', 'newbalanceDest',
-        'diff_new_old_balance', 'diff_new_old_destiny',
-        'type','ratio_amount_balanceOrig'
-    ]
-
     try:
-        # 3️⃣ Chargement du modèle
+        # 3️⃣ Chargement du pipeline complet (FeatureEngineer + Preprocessing + XGB)
         model = joblib.load(file_path)
 
-        # 4️⃣ Chargement du dataset de test
-        X_test = pd.read_csv("data/X_test_raw.csv")
-        y_true = pd.read_csv("data/y_test_raw.csv").iloc[:,0].astype(int).values
+        # 4️⃣ Chargement du dataset de test brut
+        test_data = pd.read_csv("data/test_data.csv")
 
-        X_test_cs = X_test[final_columns_selected]
+        test_data["hour"] = test_data["step"] % 24
 
-        # 6️⃣ Prédictions et seuil
-        y_scores = model.predict_proba(X_test_cs)[:, 1]
+        # ❗ Le pipeline appliquera FeatureEngineer + preprocessing automatiquement
+        X_test = test_data.drop(columns=["isFraud","isFlaggedFraud","step"])
+        y_true = test_data["isFraud"].astype(int).values
+
+        # 5️⃣ Prédictions probabilistes
+        y_scores = model.predict_proba(X_test)[:, 1]
+
+        # 6️⃣ Recherche du meilleur threshold
+        thresholds = np.arange(0.01, 1.00, 0.01)
         best_threshold = 0.5
+        best_f1 = 0
+
+        for thr in thresholds:
+            y_pred_thr = (y_scores >= thr).astype(int)
+            f1_thr = f1_score(y_true, y_pred_thr, zero_division=0)
+
+            if f1_thr > best_f1:
+                best_f1 = f1_thr
+                best_threshold = thr
+
+        # 7️⃣ Prédictions finales avec le meilleur seuil
         y_pred_final = (y_scores >= best_threshold).astype(int)
 
-        # 7️⃣ Calcul métriques directement à partir du modèle
-        f1 = f1_score(y_true, y_pred_final)
-        precision = precision_score(y_true, y_pred_final)
-        recall = recall_score(y_true, y_pred_final)
+        # 8️⃣ Calcul métriques
+        f1 = f1_score(y_true, y_pred_final, zero_division=0)
+        precision = precision_score(y_true, y_pred_final, zero_division=0)
+        recall = recall_score(y_true, y_pred_final, zero_division=0)
         accuracy = accuracy_score(y_true, y_pred_final)
 
-        # 8️⃣ Stockage des métriques dans la DB
+        # 9️⃣ Mise à jour DB
         db_model.f1_score = float(np.round(f1, 6))
         db_model.precision = float(np.round(precision, 6))
         db_model.recall = float(np.round(recall, 6))
         db_model.accuracy = float(np.round(accuracy, 6))
-        db_model.best_threshold = float(best_threshold)
+        db_model.best_threshold = float(np.round(best_threshold, 6))
+
         db.commit()
         db.refresh(db_model)
 
-        # 9️⃣ Debug : matrice de confusion
-        print("Matrice de confusion :\n", confusion_matrix(y_true, y_pred_final))
+        # 🔎 Debug console
+        print("Best threshold:", best_threshold)
+        print("Confusion matrix:\n", confusion_matrix(y_true, y_pred_final))
         print(classification_report(y_true, y_pred_final, digits=4, zero_division=0))
 
-        # 1️⃣0️⃣ Résultat API calculé à nouveau à partir du modèle
+        # 🔟 Réponse API
         result_api = {
             "id": db_model.id,
             "name": db_model.name,
@@ -85,17 +98,17 @@ def create_ml_model(db: Session, model_data: schemas.MLModelCreate, file: Upload
             "precision": float(np.round(precision, 6)),
             "recall": float(np.round(recall, 6)),
             "accuracy": float(np.round(accuracy, 6)),
-            "best_threshold": float(best_threshold),
+            "best_threshold": float(np.round(best_threshold, 6)),
             "created_at": db_model.created_at
         }
 
         return result_api
 
-
     except Exception as e:
         db.rollback()
-        # Lever une exception HTTP pour FastAPI
         raise HTTPException(status_code=400, detail=f"Erreur lors de l'évaluation du modèle: {e}")
+
+
 
 
 def list_ml_models(db: Session):

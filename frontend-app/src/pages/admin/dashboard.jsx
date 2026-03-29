@@ -325,8 +325,9 @@ export default function ProfessionalDashboard() {
       {loading && (
         <div className="fixed inset-0 bg-white bg-opacity-80 flex items-center justify-center z-50">
           <div className="flex flex-col items-center">
-            <RefreshCw className="w-8 h-8 text-blue-600 animate-spin mb-2" />
-            <p className="text-gray-600">Chargement des données...</p>
+            {/* Spinner circulaire */}
+            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p className="text-gray-600 text-lg">Chargement de vos données...</p>
           </div>
         </div>
       )}

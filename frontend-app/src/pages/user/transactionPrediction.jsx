@@ -374,7 +374,7 @@ const FraudDetectionApp = () => {
                         </div>
                         <div className="text-left">
                           <span className="font-medium text-sm block">{selectedModel.name}</span>
-                          <span className="text-xs text-gray-500">Précision: {(selectedModel.precision * 100).toFixed(1)}% </span>
+                          <span className="text-xs text-gray-500">F1 Score: {(selectedModel.f1_score * 100).toFixed(2)}% </span>
                         </div>
                       </>
                     ) : (
@@ -713,11 +713,11 @@ const FraudDetectionApp = () => {
                             fill="none"
                             stroke={prediction.fraudulent ? "#ef4444" : "#10b981"}
                             strokeWidth="4"
-                            strokeDasharray={`${prediction.riskScore}, 100`}
+                            strokeDasharray={`${prediction.fraudulent ? prediction.riskScore : 100.00 - prediction.riskScore }, 100`}
                           />
                         </svg>
                         <div className="absolute inset-0 flex flex-col items-center justify-center">
-                          <span className="text-sm font-bold text-gray-800">{prediction.riskScore}%</span>
+                          <span className="text-sm font-bold text-gray-800">{prediction.fraudulent ? prediction.riskScore : 100.00 - prediction.riskScore }%</span>
                         </div>
                       </div>
                     </div>
@@ -743,7 +743,7 @@ const FraudDetectionApp = () => {
                   </div>
                   <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                     <p className="text-gray-500 text-xs">Confiance</p>
-                    <p className="text-sm font-bold text-gray-800">{prediction.confidence}%</p>
+                    <p className="text-sm font-bold text-gray-800">{prediction.fraudulent ? prediction.confidence : 100.00 - prediction.confidence }%</p>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                     <p className="text-gray-500 text-xs">Recommandation</p>
